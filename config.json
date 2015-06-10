@@ -1,0 +1,74 @@
+{
+  "connection": {
+    "rn": {
+      "dev": {
+        "host": "localhost",
+        "database": "ResearchNavigator",
+        "user": "hackclick",
+		    "pass": "12345678",
+		    "meta": { "foo": 123 }
+      },
+      "staging": {
+        "host": "localhost",
+        "database": "ResearchNavigator",
+        "user": "hackclick",
+		    "pass": "12345678"
+      },
+      "prod": {
+        "host": "localhost",
+        "database": "ResearchNavigator",
+        "user": "hackclick",
+		    "pass": "12345678"
+      }
+    },
+    "iacuc": {
+      "dev": {
+        "host": "localhost",
+        "database": "IACUC",
+        "user": "hackclick",
+		    "pass": "12345678"
+      },
+      "staging": {},
+      "prod": {}
+    }
+  },
+  "channels": {
+    "rn": [
+      {
+        "name": "__Research Project",
+        "script": [
+          "DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10);",
+          "-- Obtain the beginning of the time interval.\n",
+          "-- SET @begin_time = GETDATE() -1;\n",
+          "SET @begin_time = $(LAST_EXEC_TIME) -1;",
+          "-- Obtain the end of the time interval.\n",
+          "SET @end_time = GETDATE();",
+          "-- Map the time interval to a change data capture query range.\n",
+          "SET @from_lsn = sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', @begin_time);",
+          "SET @to_lsn = sys.fn_cdc_map_time_to_lsn('largest less than or equal', @end_time);",
+          "-- Return the net changes occurring within the query window.\n",
+          "SELECT sys.fn_cdc_map_lsn_to_time ( __$start_lsn ) start_time, a.*, b._uid FROM cdc.fn_cdc_get_all_changes_dbo__Project(@from_lsn, @to_lsn, 'all') a inner join [__Research Project] b on a.oid = b.oid;"
+        ]
+      }   
+    ],
+    "iacuc": [
+      {
+        "name": "__Research Project",
+        "script": [
+          "DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10);",
+          "-- Obtain the beginning of the time interval.\n",
+          "-- SET @begin_time = GETDATE() -1;\n",
+          "SET @begin_time = $(LAST_EXEC_TIME) -1;",
+          "-- Obtain the end of the time interval.\n",
+          "SET @end_time = GETDATE();",
+          "-- Map the time interval to a change data capture query range.\n",
+          "SET @from_lsn = sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', @begin_time);",
+          "SET @to_lsn = sys.fn_cdc_map_time_to_lsn('largest less than or equal', @end_time);",
+          "-- Return the net changes occurring within the query window.\n",
+          "SELECT sys.fn_cdc_map_lsn_to_time ( __$start_lsn ) start_time, a.*, b._uid FROM cdc.fn_cdc_get_all_changes_dbo__Project(@from_lsn, @to_lsn, 'all') a inner join [__ClickIACUCSubmission] b on a.oid = b.oid;"
+        ]
+      }   
+    ]
+
+  }	
+}
