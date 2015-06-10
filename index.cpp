@@ -1,36 +1,46 @@
 #include <iostream>
-#include <fstream>
-#include <json/json.h>
-#include <json/value.h>
+#include "test.cpp"
+#include <boost/filesystem.hpp>
+#include "spdlog/spdlog.h"
 
 using namespace std;
 
-int main(int argc, char *argv[]) {
-  Json::Value root;
-  Json::Reader reader;
-  ifstream ifs("config.json");
+auto setupLogging = []()->void {
 
-  if (ifs.is_open()){
-    istream& s = ifs;
-    bool parsingSuccessful = reader.parse(s, root);
-    if (!parsingSuccessful){
-      cout << "Failed to parse configuration\n"
-        << reader.getFormattedErrorMessages();
-      return 1;
-    }
-    //read channels
-    const Json::Value channels = root["channels"];
-    for (Json::ValueIterator itr = channels.begin(); itr != channels.end(); itr++) {
-      std::string name = itr.name();
-      cout << root["channels"][name] << "\n";
-    }
-    /*
-    for (int index = 0; index < channels.size(); ++index){
-      cout << channels[index];
-    }
-    */
-    cout << root;
-  }  
-  //
+  if (boost::filesystem::create_directory("./log")){
+    boost::filesystem::path full_path(boost::filesystem::current_path());
+    std::cout << "Successfully created directory"
+      << full_path
+      << "/log"
+      << "\n";
+  }
+
+  size_t q_size = 1048576; //queue size must be power of 2
+  spdlog::set_async_mode(q_size);
+
+  //auto async_file = spdlog::daily_logger_st("logger", "log/presidential");
+  //async_file->set_pattern("[%Y-%d-%m %H:%M:%S:%e] [%l] [thread %t] %v");
+
+  std::vector<spdlog::sink_ptr> sinks;
+  sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
+  sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_mt>("log/banana", "txt", 0, 0));
+  auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
+  combined_logger->set_pattern("[%Y-%d-%m %H:%M:%S:%e] [%l] [thread %t] %v");
+  spdlog::register_logger(combined_logger);
+
+};
+
+int main(int argc, char *argv[]) {
+
+  setupLogging();
+
+  //testJsonCons();
+
+  //test config.json
+  int res = testConfigFile();
+
+  //test tdspp
+  int res1 = testTdspp();
+
   return 0;
 }
