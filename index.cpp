@@ -39,6 +39,9 @@ int main(int argc, char *argv[]) {
   //test config.json
   int res = testConfigFile();
 
+  //test es connection
+  //testES();
+
   //test tdspp
   int res1 = testTdspp();
 

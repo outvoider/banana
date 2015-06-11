@@ -1,6 +1,6 @@
 /*
 Staging
-osql -E -S clcwcdcpap008.nyumc.org
+osql -E -S localhost
 */
 USE ResearchNavigator
 GO

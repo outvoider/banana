@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Include="config.json" />
     <None Include="scripts.sql" />
+    <None Include="config.sample.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="index.cpp">
