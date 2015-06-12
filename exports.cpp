@@ -2,7 +2,6 @@
 #include <fstream>
 #include <json/json.h>
 #include "banana.h"
-//#include <json/value.h>
 
 #include <ctpublic.h>
 #include "tdspp.hh"
@@ -15,30 +14,15 @@
 #include <boost/uuid/uuid_io.hpp>         // streaming operators etc.
 
 #include "semaphore.hpp"
-/*
-#include "jsoncons/json.hpp"
-*/
 
 #include "client_http.hpp"
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
+#include "lmdb.h"
+
 using namespace std;
 
 namespace {
-
-  /*
-  auto testJsonCons = []()->int{
-    try{
-      gConfig = jsoncons::json::parse_file("config.json");
-      auto conn = gConfig["connection"]["rn"]["staging"];
-      cout << conn["host"].as_string();    
-    }
-    catch (std::exception ex){
-      cout << ex.what();
-    }
-    return 0;
-  };
-  **/
 
   auto testES = []()->int{
     auto esHost = globalConfig["es"]["dev"]["host"].asString();
@@ -115,6 +99,70 @@ namespace {
 
   };
 
+  auto timer = [](string& message, std::chrono::time_point<std::chrono::system_clock>& t1){
+
+    stringstream ss;
+    auto t2 = std::chrono::high_resolution_clock::now();
+    ss.str("");
+    ss << message << " "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+      << " milliseconds\n";
+
+    spdlog::get("logger")->info(ss.str());
+  };
+
+  auto setLmdbValue = [](string& k, string& v){
+
+    MDB_txn *txn;
+    MDB_val key, data;
+
+    int rc;
+    rc = mdb_txn_begin(env, NULL, 0, &txn);
+    rc = mdb_open(txn, NULL, MDB_CREATE, &dbi);
+
+    key.mv_size = k.size();
+    key.mv_data = (char*)k.c_str();
+    data.mv_size = v.size();
+    data.mv_data = (char*)v.c_str();
+    
+    rc = mdb_put(txn, dbi, &key, &data, 0);
+    rc = mdb_txn_commit(txn);
+
+  };
+
+  auto getLmdbValue = [](string& k)->string{
+
+    MDB_txn *txn;
+    MDB_val key, data;
+
+    int rc;
+    rc = mdb_txn_begin(env, NULL, 0, &txn);
+    rc = mdb_open(txn, NULL, MDB_CREATE, &dbi);
+
+    key.mv_size = k.size();
+    key.mv_data = (char*)k.c_str();
+
+    rc = mdb_get(txn, dbi, &key, &data);
+    if (rc != 0){
+      mdb_txn_abort(txn);
+      return "";
+    }
+    
+    int sz = (int)data.mv_size;
+    char* buffer = (char*)malloc(sz+1);
+    char* ptr = (char*)data.mv_data;
+    for (int n = 0; n< sz; n++)
+      buffer[n] = ptr[n];
+
+    buffer[sz] = '\0';
+    string res(buffer);
+    
+    free(buffer);
+
+    rc = mdb_txn_commit(txn);
+    return res;
+  };
+
   auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector<shared_ptr<string>>{
 
     vector<shared_ptr<string>> vs;
@@ -150,6 +198,8 @@ namespace {
         }
       }
 
+      string currentLastStartTime;
+
       while (!q->eof()) {
 
         Json::Value meta;
@@ -167,6 +217,9 @@ namespace {
         }
         body["processed"] = 0;
 
+        //Update the start time
+        currentLastStartTime = body["start_time"].asString();
+
         //.write will tack on a \n after completion
         Json::FastWriter writer;
         auto compactMeta = writer.write(meta);
@@ -176,9 +229,6 @@ namespace {
 
         spdlog::get("logger")->info() << ss.str();
 
-        //auto rv = *sv;
-        //rv = ss.str();
-        //*sv = ss.str();
         auto sv = shared_ptr<string>(new string(ss.str()));
         vs.push_back(sv);
         
@@ -186,24 +236,17 @@ namespace {
       }
 
       cout << vs.size() << "\n";
+
+      //Store this somewhere
+      //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
+      setLmdbValue(topic["name"].asString(), currentLastStartTime);
+
     }
     catch (TDSPP::Exception &e) {
       spdlog::get("logger")->error() << e.message;
     }
 
     return vs;
-  };
-
-  auto timer = [](string& message, std::chrono::time_point<std::chrono::system_clock>& t1){
-
-    stringstream ss;
-    auto t2 = std::chrono::high_resolution_clock::now();
-    ss.str("");
-    ss << message << " "
-      << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
-      << " milliseconds\n";
-
-    spdlog::get("logger")->info(ss.str());
   };
 
   auto processTopic = [](string& channelName, Json::Value& topic)->vector<shared_ptr<string>>{
@@ -216,16 +259,20 @@ namespace {
     stringstream scriptss;
     string script;
     //string defaultLastExecTime = "GETDATE()";
-    string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
-
+    
     //cout << channel[index]["name"].asString();
     auto scriptArr = topic["script"];
     for (auto& e : scriptArr){
       scriptss << e.asString();
     }
+
+    //Fetch from store somewhere
+    //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
+    string storedLastStartTime = getLmdbValue(topic["name"].asString());
+
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
-    script = std::regex_replace(script, e, defaultLastExecTime);
+    script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : storedLastStartTime);
     spdlog::get("logger")->info() << script;
 
     auto vs = executeScript(channelName, topic, script);

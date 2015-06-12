@@ -2,12 +2,12 @@
 #define BANANA_H
 
 #include <json/json.h>
-#include "jsoncons/json.hpp"
+#include "lmdb.h"
 
 using namespace std;
 
 static Json::Value globalConfig;
-static jsoncons::basic_json<char, std::allocator<void>> gConfig;
+static string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
 
 namespace banana {
   class channel {
@@ -18,5 +18,8 @@ namespace banana {
     ~channel(){}
   };
 };
+
+static MDB_env *env;
+static MDB_dbi dbi;
 
 #endif BANANA_H

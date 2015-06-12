@@ -1,7 +1,7 @@
 #include <iostream>
 #include "exports.cpp"
 #include <boost/filesystem.hpp>
-#include "spdlog/spdlog.h"
+//#include "spdlog/spdlog.h"
 
 using namespace std;
 
@@ -9,7 +9,7 @@ auto setupLogging = []()->void {
 
   if (boost::filesystem::create_directory("./log")){
     boost::filesystem::path full_path(boost::filesystem::current_path());
-    std::cout << "Successfully created directory"
+    spdlog::get("logger")->info() << "Successfully created directory"
       << full_path
       << "/log"
       << "\n";
@@ -30,9 +30,34 @@ auto setupLogging = []()->void {
   
 };
 
+auto setupLmdbEnv = []()->void {
+  boost::filesystem::path full_path(boost::filesystem::current_path());
+  string dbPath = full_path.generic_string() + "/db";
+
+  if (boost::filesystem::create_directory("./db")){
+    boost::filesystem::path full_path(boost::filesystem::current_path());
+    spdlog::get("logger")->info() << "Successfully created directory"
+      << full_path
+      << "/db"
+      << "\n";
+  }
+
+  int rc;
+  rc = mdb_env_create(&env);
+  rc = mdb_env_set_mapsize(env, 104857600);
+  rc = mdb_env_set_maxdbs(env, 4);
+  rc = mdb_env_open(env, dbPath.c_str(), MDB_CREATE, 0664);
+  if (rc != 0){
+    mdb_env_close(env);
+  }
+
+};
+
 int main(int argc, char *argv[]) {
 
   setupLogging();
+
+  setupLmdbEnv();
 
   //testJsonCons();
 
