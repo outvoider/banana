@@ -216,6 +216,7 @@ namespace {
           body[vec.at(i)] = q->fields(i)->tostr();
         }
         body["processed"] = 0;
+        body["channel"] = channelName;
 
         //Update the start time
         currentLastStartTime = body["start_time"].asString();

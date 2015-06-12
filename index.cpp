@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
   int res = loadConfigFile();
 
   //test es connection
-  //testES();
+  testES();
 
   //test tdspp
   int res1 = start();

@@ -2,13 +2,16 @@
   "es": {
     "dev": {
       "host": "localhost",
-      "port": "9200"
+      "port": "9200",
+      "index": "cdc"
     },
     "prod": {
       "host": "",
-      "port": ""
+      "port": "",
+      "index": ""
     }
   },
+  "sleep": 5000,
   "connection": {
     "rn": {
       "dev": {
