@@ -6,12 +6,12 @@ banana
 Given config.json:
 
 1.  For each channel:
-  a.  For each topic:
-    i.  Executes the SQL statement and converts the each row to a 1-level inline JSON object.
-  b.  After all topics are processed:
-    i.  Bulkload to Elasticsearch using the Bulk API
-    ii.  The index name is defined in config.json by the "es" key.
-    iii.  The index type is defined by the "name" key of each topic.
+    a.  For each topic:
+        1.  Executes the SQL statement and converts the each row to a 1-level inline JSON object.
+    b.  After all topics are processed:
+        1.  Bulkload to Elasticsearch using the Bulk API
+        2.  The index name is defined in config.json by the "es" key.
+        3.  The index type is defined by the "name" key of each topic.
 
 ###Dependencies
 
