@@ -139,7 +139,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="index.cpp" />
-    <ClCompile Include="test.cpp" />
+    <ClCompile Include="exports.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="banana.h" />

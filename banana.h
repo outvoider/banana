@@ -14,9 +14,7 @@ namespace banana {
   public:
     string name;
     Json::Value topics;
-    channel(string n, Json::Value& j) : name(n){
-      topics = j;
-    }
+    channel(const string& n, const Json::Value& j) : name(n), topics(j) {}
     ~channel(){}
   };
 };
