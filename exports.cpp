@@ -217,6 +217,7 @@ namespace {
         }
         body["processed"] = 0;
         body["channel"] = channelName;
+        body["modelName"] = topic["modelName"].asString();
 
         //Update the start time
         currentLastStartTime = body["start_time"].asString();

@@ -69,6 +69,7 @@
     "rn": [
       {
         "name": "research-project:status",
+        "modelName": "_Research Project",
         "script": [
           "Array of strings defining\n",
           "a readable SQL statement.\n"
@@ -78,6 +79,7 @@
     "crms": [
       {
         "name": "clinicaltrial:status",
+        "modelName": "_ClinicalTrial",
         "script": [
           "Array of strings defining\n",
           "a readable SQL statement.\n"
@@ -87,6 +89,7 @@
     "iacuc": [
       {
         "name": "clickiacucsubmission:status",
+        "modelName": "",
         "script": [
           "Array of strings defining\n",
           "a readable SQL statement.\n"
