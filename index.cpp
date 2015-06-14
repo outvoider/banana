@@ -1,7 +1,8 @@
 #include <iostream>
-#include "exports.cpp"
+#include <chrono>
+#include <thread>
 #include <boost/filesystem.hpp>
-//#include "spdlog/spdlog.h"
+#include "exports.cpp"
 
 using namespace std;
 
@@ -53,24 +54,33 @@ auto setupLmdbEnv = []()->void {
 
 };
 
+void test() {
+  testES();
+  testESPostBulk();
+}
+
 int main(int argc, char *argv[]) {
 
   setupLogging();
 
   setupLmdbEnv();
 
-  //testJsonCons();
-
-  //test config.json
   int res = loadConfigFile();
+  if (res){
+    return 1;
+  }
 
-  //test es connection
-  testES();
+  //get sleep_ms if defined
+  if (globalConfig["sleep_ms"].isNumeric()){
+    sleep_ms = globalConfig["sleep_ms"].asUInt();
+  }
 
-  //test tdspp
-  int res1 = start();
-
-  //testESPostBulk();
-
+  //spin foreveer
+  while (1){
+    start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+  }
+  
+  //will never get here anyway
   return 0;
 }

@@ -80,20 +80,21 @@ namespace {
       istream& s = ifs;
       bool parsingSuccessful = reader.parse(s, globalConfig);
       if (!parsingSuccessful){
-        cout << "Failed to parse configuration\n"
+        spdlog::get("logger")->error() << "Failed to parse configuration\n"
           << reader.getFormattedErrorMessages();
         return 1;
       }
       //read channel
-      const Json::Value channel = globalConfig["channel"];
-      for (Json::ValueIterator itr = channel.begin(); itr != channel.end(); itr++) {
-        std::string name = itr.name();
-        //cout << globalConfig["channel"][name] << "\n";
-      }      
+      //const Json::Value channel = globalConfig["channel"];
+      //for (Json::ValueIterator itr = channel.begin(); itr != channel.end(); itr++) {
+      //  std::string name = itr.name();
+      //}      
     }
     else {
+      spdlog::get("logger")->error() << "config.json cannot be found";
       return 1;
     }
+    ifs.close();
 
     return 0;
 

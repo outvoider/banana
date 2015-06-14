@@ -8,6 +8,7 @@ using namespace std;
 
 static Json::Value globalConfig;
 static string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
+static unsigned int sleep_ms = 5000;
 
 namespace banana {
   class channel {
