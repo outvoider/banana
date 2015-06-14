@@ -148,16 +148,7 @@ namespace {
       return "";
     }
     
-    int sz = (int)data.mv_size;
-    char* buffer = (char*)malloc(sz+1);
-    char* ptr = (char*)data.mv_data;
-    for (int n = 0; n< sz; n++)
-      buffer[n] = ptr[n];
-
-    buffer[sz] = '\0';
-    string res(buffer);
-    
-    free(buffer);
+    string res((const char*)data.mv_data, data.mv_size);
 
     rc = mdb_txn_commit(txn);
     return res;

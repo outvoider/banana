@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   //test tdspp
   int res1 = start();
 
-  testESPostBulk();
+  //testESPostBulk();
 
   return 0;
 }
