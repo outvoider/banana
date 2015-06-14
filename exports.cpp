@@ -159,7 +159,7 @@ namespace {
     vector<shared_ptr<string>> vs;
 
     auto conn = globalConfig["connection"][channelName]["staging"];
-    cout << conn;
+    //cout << conn;
     auto db = unique_ptr<TDSPP>(new TDSPP());
 
     /* Connect to database. */
@@ -228,7 +228,7 @@ namespace {
         q->next();
       }
 
-      cout << vs.size() << "\n";
+      //cout << vs.size() << "\n";
 
       //Store this somewhere
       //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
@@ -309,7 +309,7 @@ namespace {
     auto channel = pr.topics;
     //need key
 
-    cout << channel;
+    //cout << channel;
 
     for (int index = 0; index < channel.size(); ++index){      
       auto vs = processTopic(pr.name, channel[index]);
