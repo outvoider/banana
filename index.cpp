@@ -2,6 +2,8 @@
 #include <chrono>
 #include <thread>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+
 #include "exports.cpp"
 
 using namespace std;
@@ -44,12 +46,12 @@ auto setupLmdbEnv = []()->void {
   }
 
   int rc;
-  rc = mdb_env_create(&env);
-  rc = mdb_env_set_mapsize(env, 104857600);
-  rc = mdb_env_set_maxdbs(env, 4);
-  rc = mdb_env_open(env, dbPath.c_str(), MDB_CREATE, 0664);
+  rc = mdb_env_create(&lmdb_env);
+  rc = mdb_env_set_mapsize(lmdb_env, 104857600);
+  rc = mdb_env_set_maxdbs(lmdb_env, 4);
+  rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0664);
   if (rc != 0){
-    mdb_env_close(env);
+    mdb_env_close(lmdb_env);
   }
 
 };
@@ -61,14 +63,42 @@ void test() {
 
 int main(int argc, char *argv[]) {
 
-  setupLogging();
-
-  setupLmdbEnv();
-
   int res = loadConfigFile();
   if (res){
     return 1;
   }
+
+  setupLogging();
+
+  setupLmdbEnv();
+
+  namespace po = boost::program_options;
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help", "There is 1 parameter that you can pass")
+    ("env", po::value<string>(), "dev, staging, prod");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    cout << desc << "\n";
+    return 1;
+  }
+
+  // Loop through each argument and print its number and value
+  spdlog::get("logger")->info("Banana has started. ");
+  for (int nArg = 0; nArg < argc; nArg++) {
+    spdlog::get("logger")->info() << " Parameter: " << nArg << " " << argv[nArg];
+  }
+  spdlog::get("logger")->flush();
+
+  if (vm.count("env")) {
+    ::env = (vm["env"].as<string>());
+  }
+  
+  //spdlog::get("logging")->info() << "env => " << ::env;
 
   //get sleep_ms if defined
   if (globalConfig["sleep_ms"].isNumeric()){

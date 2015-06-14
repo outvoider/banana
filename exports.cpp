@@ -25,8 +25,8 @@ using namespace std;
 namespace {
 
   auto testES = []()->int{
-    auto esHost = globalConfig["es"]["dev"]["host"].asString();
-    auto esPort = globalConfig["es"]["dev"]["port"].asString();
+    auto esHost = globalConfig["es"][::env]["host"].asString();
+    auto esPort = globalConfig["es"][::env]["port"].asString();
     
     //curl - XDELETE 'localhost:9200/customer?pretty'
     HttpClient c0(esHost + ":" + esPort);
@@ -59,8 +59,8 @@ namespace {
 
   auto testESPostBulk = []()->int {
 
-    auto esHost = globalConfig["es"]["dev"]["host"].asString();
-    auto esPort = globalConfig["es"]["dev"]["port"].asString();
+    auto esHost = globalConfig["es"][::env]["host"].asString();
+    auto esPort = globalConfig["es"][::env]["port"].asString();
 
     //curl localhost : 9200 / index1, index2 / _stats
     HttpClient c0(esHost + ":" + esPort);
@@ -118,15 +118,15 @@ namespace {
     MDB_val key, data;
 
     int rc;
-    rc = mdb_txn_begin(env, NULL, 0, &txn);
-    rc = mdb_open(txn, NULL, MDB_CREATE, &dbi);
+    rc = mdb_txn_begin(lmdb_env, NULL, 0, &txn);
+    rc = mdb_open(txn, NULL, MDB_CREATE, &lmdb_dbi);
 
     key.mv_size = k.size();
     key.mv_data = (char*)k.c_str();
     data.mv_size = v.size();
     data.mv_data = (char*)v.c_str();
     
-    rc = mdb_put(txn, dbi, &key, &data, 0);
+    rc = mdb_put(txn, lmdb_dbi, &key, &data, 0);
     rc = mdb_txn_commit(txn);
 
   };
@@ -137,13 +137,13 @@ namespace {
     MDB_val key, data;
 
     int rc;
-    rc = mdb_txn_begin(env, NULL, 0, &txn);
-    rc = mdb_open(txn, NULL, MDB_CREATE, &dbi);
+    rc = mdb_txn_begin(lmdb_env, NULL, 0, &txn);
+    rc = mdb_open(txn, NULL, MDB_CREATE, &lmdb_dbi);
 
     key.mv_size = k.size();
     key.mv_data = (char*)k.c_str();
 
-    rc = mdb_get(txn, dbi, &key, &data);
+    rc = mdb_get(txn, lmdb_dbi, &key, &data);
     if (rc != 0){
       mdb_txn_abort(txn);
       return "";
@@ -159,7 +159,7 @@ namespace {
 
     vector<shared_ptr<string>> vs;
 
-    auto conn = globalConfig["connection"][channelName]["staging"];
+    auto conn = globalConfig["connection"][channelName][::env];
     //cout << conn;
     auto db = unique_ptr<TDSPP>(new TDSPP());
 
@@ -191,6 +191,7 @@ namespace {
       }
 
       string currentLastStartTime;
+      int rowCount = 0;
 
       while (!q->eof()) {
 
@@ -203,7 +204,7 @@ namespace {
         meta["index"]["_index"] = "cdc";
         meta["index"]["_type"] = topic["name"].asString();
         meta["index"]["_id"] = boost::uuids::to_string(uuid);
-
+        
         for (int i = 0; i < q->fieldcount; i++){
           body[vec.at(i)] = q->fields(i)->tostr();
         }
@@ -233,7 +234,15 @@ namespace {
 
       //Store this somewhere
       //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
-      setLmdbValue(topic["name"].asString(), currentLastStartTime);
+      stringstream ss1;
+      ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
+      spdlog::get("logger")->info() << ss1.str();
+      /**
+        Only update if rows returned
+      **/
+      if (vs.size() > 0){
+        setLmdbValue(topic["name"].asString(), currentLastStartTime);
+      }      
 
     }
     catch (TDSPP::Exception &e) {
@@ -266,7 +275,7 @@ namespace {
 
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
-    script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : storedLastStartTime);
+    script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
     spdlog::get("logger")->info() << script;
 
     auto vs = executeScript(channelName, topic, script);
@@ -284,20 +293,27 @@ namespace {
       ss << *s;
     }
 
-    auto esHost = globalConfig["es"]["dev"]["host"].asString();
-    auto esPort = globalConfig["es"]["dev"]["port"].asString();
+    auto esHost = globalConfig["es"][::env]["host"].asString();
+    auto esPort = globalConfig["es"][::env]["port"].asString();
 
     //start timer
     auto t1 = std::chrono::high_resolution_clock::now();
 
     HttpClient bulkClient(esHost + ":" + esPort);
     auto r = bulkClient.request("POST", "/_bulk", ss);
-    ostringstream o;
+    stringstream o;
     o << r->content.rdbuf();
-    spdlog::get("logger")->info() << o.str();
 
-    string message = "Bulk to ES completed.  Elapsed => ";
-    timer(message, t1);
+    //debug detail
+    //spdlog::get("logger")->info() << o.str();
+
+    Json::Value jv;
+    o >> jv;
+    spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
+
+    ss.str("");
+    ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
+    timer(ss.str(), t1);
 
     return 0;
   };
