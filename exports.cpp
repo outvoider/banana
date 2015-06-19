@@ -24,55 +24,8 @@ using namespace std;
 
 namespace {
 
-  auto testES = []()->int{
-    auto esHost = globalConfig["es"][::env]["host"].asString();
-    auto esPort = globalConfig["es"][::env]["port"].asString();
-    
-    //curl - XDELETE 'localhost:9200/customer?pretty'
-    HttpClient c0(esHost + ":" + esPort);
-    auto r0 = c0.request("DELETE", "/cdc?pretty");
-    
-    cout << "\n\n" << r0->content.rdbuf() << endl;
-
-    string meta("{ \"index\" : { \"_index\" : \"cdc\", \"_type\" : \"test-type\", \"_id\" : \"1234\" } }");
-    string body("{ \"foo\" : \"bar\", \"start_time\": \"2015-06-11T13:45:22\" }");
-    stringstream ss;
-
-    ss << meta << "\n" << body << "\n";
-
-    HttpClient bulkClient(esHost + ":" + esPort);
-    auto r = bulkClient.request("POST", "/_bulk", ss);
-    cout << "\n\n"<< r->content.rdbuf() << endl;
-
-    HttpClient client(esHost+":"+esPort);
-    //auto r1 = client.request("GET", "/_nodes?settings=true&pretty=true");
-    auto r1 = client.request("GET", "cdc/test_type/1234"); //or cdc/test_type/1234/_source
-    cout << "\n\n" << r1->content.rdbuf() << endl;
-
-    //curl -XGET "http://localhost:9200/myindex/_mapping"
-    HttpClient client2(esHost + ":" + esPort);
-    auto r2 = client2.request("GET", "cdc/_mapping"); 
-    cout << "\n\n" << r2->content.rdbuf() << endl;
-
-    return 0;
-  };
-
-  auto testESPostBulk = []()->int {
-
-    auto esHost = globalConfig["es"][::env]["host"].asString();
-    auto esPort = globalConfig["es"][::env]["port"].asString();
-
-    //curl localhost : 9200 / index1, index2 / _stats
-    HttpClient c0(esHost + ":" + esPort);
-    auto r0 = c0.request("GET", "/cdc/_stats?pretty");
-    cout << "\n\n" << r0->content.rdbuf() << endl;
-
-    return 0;
-  };
-
   auto loadConfigFile = []()->int{
 
-    //Json::Value root;
     Json::Reader reader;
     ifstream ifs("config.json");
 
@@ -83,12 +36,7 @@ namespace {
         spdlog::get("logger")->error() << "Failed to parse configuration\n"
           << reader.getFormattedErrorMessages();
         return 1;
-      }
-      //read channel
-      //const Json::Value channel = globalConfig["channel"];
-      //for (Json::ValueIterator itr = channel.begin(); itr != channel.end(); itr++) {
-      //  std::string name = itr.name();
-      //}      
+      }            
     }
     else {
       spdlog::get("logger")->error() << "config.json cannot be found";
@@ -113,7 +61,7 @@ namespace {
   };
 
   auto setLmdbValue = [](string& k, string& v){
-
+    
     MDB_txn *txn;
     MDB_val key, data;
 
@@ -158,9 +106,8 @@ namespace {
   auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector<shared_ptr<string>>{
 
     vector<shared_ptr<string>> vs;
-
+    
     auto conn = globalConfig["connection"][channelName][::env];
-    //cout << conn;
     auto db = unique_ptr<TDSPP>(new TDSPP());
 
     /* Connect to database. */
@@ -168,7 +115,8 @@ namespace {
       db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
     }
     catch (TDSPP::Exception &e){
-      cerr << e.message << endl;
+      //cerr << e.message << endl;
+      spdlog::get("logger")->error() << e.message;
       return vs;
     }
 
@@ -176,7 +124,7 @@ namespace {
     db->execute("use " + conn["database"].asString());
 
     auto q = db->sql(script);
-
+    
     try {
       /* Execute SQL query. */
       q->execute();
@@ -185,14 +133,13 @@ namespace {
       Rows::RowList rl = q->rows->rows;
       for (auto& r : rl){
         for (auto& v : r){
-          //cout << v->colname << "\n";
           vec.push_back(v->colname);
         }
       }
-
+      
       string currentLastStartTime;
       int rowCount = 0;
-
+      
       while (!q->eof()) {
 
         Json::Value meta;
@@ -230,10 +177,7 @@ namespace {
         q->next();
       }
 
-      //cout << vs.size() << "\n";
-
-      //Store this somewhere
-      //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
+      //Store this in lmdb
       stringstream ss1;
       ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
       spdlog::get("logger")->info() << ss1.str();
@@ -248,29 +192,27 @@ namespace {
     catch (TDSPP::Exception &e) {
       spdlog::get("logger")->error() << e.message;
     }
+    catch (std::exception& e){
+      spdlog::get("logger")->error() << e.what();
+    }
 
     return vs;
   };
 
   auto processTopic = [](string& channelName, Json::Value& topic)->vector<shared_ptr<string>>{
 
-    //cout << "Processing " << topic["name"] << "\n";
-
     //start timer
     auto t1 = std::chrono::high_resolution_clock::now();
 
     stringstream scriptss;
     string script;
-    //string defaultLastExecTime = "GETDATE()";
     
-    //cout << channel[index]["name"].asString();
     auto scriptArr = topic["script"];
     for (auto& e : scriptArr){
       scriptss << e.asString();
     }
 
-    //Fetch from store somewhere
-    //cout << "Topic => " << topic["name"] << " Last start time => " << currentLastStartTime << "\n";
+    //Fetch from lmdb store
     string storedLastStartTime = getLmdbValue(topic["name"].asString());
 
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
@@ -304,7 +246,7 @@ namespace {
     stringstream o;
     o << r->content.rdbuf();
 
-    //debug detail
+    //debug detail, else no need
     //spdlog::get("logger")->info() << o.str();
 
     Json::Value jv;
@@ -324,10 +266,7 @@ namespace {
 
     auto pr = *channel_ptr;
     auto channel = pr.topics;
-    //need key
-
-    //cout << channel;
-
+    
     for (int index = 0; index < channel.size(); ++index){      
       auto vs = processTopic(pr.name, channel[index]);
       combined.insert(combined.end(), vs.begin(), vs.end());
@@ -349,22 +288,18 @@ namespace {
 
     vector<string> names;
     for (auto const& id : channels.getMemberNames()) {
-      //std::cout << id << std::endl;
       names.push_back(id);
     }
 
-    //for (const auto& channel : channels) {
     for (auto i = 0; i < channels.size(); i++) {
       auto channel = channels[names[i]];
       string channelName = names[i];
-      //cout << channel;
-      //std::pair<string, Json::Value> pr = std::make_pair(channelName, new Json::Value(channel));
-      //auto j = new Json::Value(channel);
+      
       v.push_back(unique_ptr<banana::channel>(new banana::channel(channelName, channel)));
     }
 
     parallel_for_each(v.begin(), v.end(), processChannel);
-
+    
     return 0;
   };
 

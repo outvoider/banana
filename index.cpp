@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 
 #include "exports.cpp"
+#include "test.cpp"
 
 using namespace std;
 
@@ -21,9 +22,6 @@ auto setupLogging = []()->void {
   size_t q_size = 1048576; //queue size must be power of 2
   spdlog::set_async_mode(q_size);
 
-  //auto async_file = spdlog::daily_logger_st("logger", "log/banana");
-  //async_file->set_pattern("[%Y-%d-%m %H:%M:%S:%e] [%l] [thread %t] %v");
-
   std::vector<spdlog::sink_ptr> sinks;
   //sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
   sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_mt>("log/banana", "txt", 0, 0));
@@ -38,7 +36,7 @@ auto setupLmdbEnv = []()->void {
   string dbPath = full_path.generic_string() + "/db";
 
   if (boost::filesystem::create_directory("./db")){
-    boost::filesystem::path full_path(boost::filesystem::current_path());
+    //boost::filesystem::path full_path(boost::filesystem::current_path());
     spdlog::get("logger")->info() << "Successfully created directory"
       << full_path
       << "/db"
@@ -55,11 +53,6 @@ auto setupLmdbEnv = []()->void {
   }
 
 };
-
-void test() {
-  testES();
-  testESPostBulk();
-}
 
 int main(int argc, char *argv[]) {
 
@@ -98,8 +91,6 @@ int main(int argc, char *argv[]) {
     ::env = (vm["env"].as<string>());
   }
   
-  //spdlog::get("logging")->info() << "env => " << ::env;
-
   //get sleep_ms if defined
   if (globalConfig["sleep_ms"].isNumeric()){
     sleep_ms = globalConfig["sleep_ms"].asUInt();
@@ -109,6 +100,7 @@ int main(int argc, char *argv[]) {
   while (1){
     start();
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+    spdlog::get("logger")->flush();
   }
   
   //will never get here anyway
