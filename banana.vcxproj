@@ -98,7 +98,9 @@
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)config.json" "$(TargetDir)config.json"
 copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir)mdb.dll
-copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Debug\ct.dll" "$(TargetDir)ct.dll"</Command>
+copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Debug\ct.dll" "$(TargetDir)ct.dll"
+copy /Y "c:\windows\system32\MSVCR120D.DLL" "$(TargetDir)MSVCR120D.DLL"
+copy /Y "c:\windows\system32\MSVCP120D.DLL" "$(TargetDir)MSVCP120D.DLL"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -124,18 +126,20 @@ copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Debug\ct.dll" "$(TargetDi
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\cygwin64\home\htao\jsoncpp\include;C:\cygwin64\home\htao\tdspp\include;C:\cygwin64\home\htao\freetds\include;C:\cygwin64\home\htao\freetds\build\include;C:\cygwin64\home\htao\jsoncons\src;C:\cygwin64\home\htao\banana\include;C:\local\boost_1_57_0;C:\cygwin64\home\htao\Simple-Web-Server;C:\cygwin64\home\htao\lightningdb-win\liblmdb;C:\cygwin64\home\htao\lightningdb-win\liblmdb\build_compability_includes\real</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WIN32_WINNT=0x0701;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <CallingConvention>Cdecl</CallingConvention>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Release;C:\cygwin64\home\htao\tdspp\x64\Release;C:\cygwin64\home\htao\freetds\build\src\ctlib\Release;C:\cygwin64\home\htao\freetds\src\tds\x64\release;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release;C:\freetds-0.91\src\ctlib\x64\release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>mdb.lib;jsoncpp.lib;tds.lib;tdspp.lib;ct.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Release;C:\cygwin64\home\htao\tdspp\x64\Release;C:\cygwin64\home\htao\freetds-0.95.5\build\src\ctlib\Release;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>mdb.lib;jsoncpp.lib;tdspp.lib;ct.lib;;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)config.json" "$(TargetDir)config.json"
 copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir)mdb.dll
-copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Release\ct.dll" "$(TargetDir)ct.dll"
+copy /Y "C:\cygwin64\home\htao\freetds-0.95.5\build\src\ctlib\Release\ct.dll" "$(TargetDir)ct.dll"
 </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
