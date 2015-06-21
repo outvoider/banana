@@ -31,6 +31,23 @@ auto setupLogging = []()->void {
   
 };
 
+auto createLmdb = [](string& dbPath)->void {
+  int rc;
+  rc = mdb_env_create(&lmdb_env);
+  rc = mdb_env_set_mapsize(lmdb_env, 104857600);
+  rc = mdb_env_set_maxdbs(lmdb_env, 4);
+  //rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0664);
+  rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0);
+  if (rc != 0){
+    spdlog::get("logger")->error() << "Failed to create lmdb.  Returned => " << rc;
+    spdlog::get("logger")->flush();
+    mdb_env_close(lmdb_env);
+  }
+  else {
+    spdlog::get("logger")->info() << "Successfully created lmdb.";
+  }
+};
+
 auto setupLmdbEnv = []()->void {
   boost::filesystem::path full_path(boost::filesystem::current_path());
   string dbPath = full_path.generic_string() + "/db";
@@ -40,17 +57,9 @@ auto setupLmdbEnv = []()->void {
     spdlog::get("logger")->info() << "Successfully created directory"
       << full_path
       << "/db"
-      << "\n";
+      << "\n";    
   }
-
-  int rc;
-  rc = mdb_env_create(&lmdb_env);
-  rc = mdb_env_set_mapsize(lmdb_env, 104857600);
-  rc = mdb_env_set_maxdbs(lmdb_env, 4);
-  rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0664);
-  if (rc != 0){
-    mdb_env_close(lmdb_env);
-  }
+  //createLmdb(dbPath);
 
 };
 

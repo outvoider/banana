@@ -24,4 +24,4 @@ namespace banana {
 static MDB_env *lmdb_env;
 static MDB_dbi lmdb_dbi;
 
-#endif BANANA_H
+#endif

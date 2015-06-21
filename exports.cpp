@@ -61,7 +61,7 @@ namespace {
   };
 
   auto setLmdbValue = [](string& k, string& v){
-    
+    return;
     MDB_txn *txn;
     MDB_val key, data;
 
@@ -80,7 +80,7 @@ namespace {
   };
 
   auto getLmdbValue = [](string& k)->string{
-
+    return "";
     MDB_txn *txn;
     MDB_val key, data;
 
@@ -104,7 +104,9 @@ namespace {
   };
 
   auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector<shared_ptr<string>>{
-
+    spdlog::get("logger")->info() << "executeScript";
+    spdlog::get("logger")->flush();
+      
     vector<shared_ptr<string>> vs;
     
     auto conn = globalConfig["connection"][channelName][::env];
@@ -112,16 +114,29 @@ namespace {
 
     /* Connect to database. */
     try {
+      spdlog::get("logger")->info() << "Connect to database.";
+      spdlog::get("logger")->flush();    
+
       db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+
+      spdlog::get("logger")->info() << "Execute command.";
+      spdlog::get("logger")->flush();    
+      
+      /* Execute command. */
+      db->execute("use " + conn["database"].asString());
     }
     catch (TDSPP::Exception &e){
       //cerr << e.message << endl;
       spdlog::get("logger")->error() << e.message;
       return vs;
     }
+    catch (std::exception& e){
+      spdlog::get("logger")->error() << e.what();
+      return vs;
+    }
 
-    /* Execute command. */
-    db->execute("use " + conn["database"].asString());
+    spdlog::get("logger")->info() << "Execute query";
+    spdlog::get("logger")->flush();    
 
     auto q = db->sql(script);
     
@@ -185,7 +200,8 @@ namespace {
         Only update if rows returned
       **/
       if (vs.size() > 0){
-        setLmdbValue(topic["name"].asString(), currentLastStartTime);
+        string nm = topic["name"].asString();
+        setLmdbValue(nm, currentLastStartTime);
       }      
 
     }
@@ -213,7 +229,8 @@ namespace {
     }
 
     //Fetch from lmdb store
-    string storedLastStartTime = getLmdbValue(topic["name"].asString());
+    string nm = topic["name"].asString();
+    string storedLastStartTime = getLmdbValue(nm);
 
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
@@ -222,7 +239,11 @@ namespace {
 
     auto vs = executeScript(channelName, topic, script);
 
-    timer("Topic => " + topic["name"].asString() + " completed.  Elapsed => ", t1);
+    stringstream ss;
+    ss << "Topic => " << topic["name"].asString() << " completed.  Elapsed => ";
+    //timer("Topic => " + topic["name"].asString() + " completed.  Elapsed => ", t1);
+    string msg = ss.str();
+    timer(msg, t1);
 
     return vs;
   };
@@ -255,7 +276,8 @@ namespace {
 
     ss.str("");
     ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
-    timer(ss.str(), t1);
+    string msg = ss.str();
+    timer(msg, t1);
 
     return 0;
   };
