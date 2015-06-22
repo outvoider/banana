@@ -4,7 +4,6 @@
 #include "banana.h"
 
 #include <ctpublic.h>
-#include "tdspp.hh"
 #include <memory>
 #include <regex>
 #include "spdlog/spdlog.h"
@@ -61,7 +60,7 @@ namespace {
   };
 
   auto setLmdbValue = [](string& k, string& v){
-    return;
+    
     MDB_txn *txn;
     MDB_val key, data;
 
@@ -80,7 +79,7 @@ namespace {
   };
 
   auto getLmdbValue = [](string& k)->string{
-    return "";
+    
     MDB_txn *txn;
     MDB_val key, data;
 
@@ -103,118 +102,85 @@ namespace {
     return res;
   };
 
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector<shared_ptr<string>>{
-    spdlog::get("logger")->info() << "executeScript";
-    spdlog::get("logger")->flush();
-      
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector < shared_ptr<string> > {
+
     vector<shared_ptr<string>> vs;
-    
+
     auto conn = globalConfig["connection"][channelName][::env];
-    auto db = unique_ptr<TDSPP>(new TDSPP());
 
-    /* Connect to database. */
-    try {
-      spdlog::get("logger")->info() << "Connect to database.";
-      spdlog::get("logger")->flush();    
+    int rc;
 
-      db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+    auto db = unique_ptr<banana::TDSClient>(new banana::TDSClient());
 
-      spdlog::get("logger")->info() << "Execute command.";
-      spdlog::get("logger")->flush();    
-      
-      /* Execute command. */
-      db->execute("use " + conn["database"].asString());
-    }
-    catch (TDSPP::Exception &e){
-      //cerr << e.message << endl;
-      spdlog::get("logger")->error() << e.message;
+    rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+    if (rc)
       return vs;
-    }
-    catch (std::exception& e){
-      spdlog::get("logger")->error() << e.what();
-      return vs;
-    }
-
-    spdlog::get("logger")->info() << "Execute query";
-    spdlog::get("logger")->flush();    
-
-    auto q = db->sql(script);
     
-    try {
-      /* Execute SQL query. */
-      q->execute();
+    rc = db->useDatabase(conn["database"].asString());
+    if (rc)
+      return vs;
 
-      vector<string> vec;
-      Rows::RowList rl = q->rows->rows;
-      for (auto& r : rl){
-        for (auto& v : r){
-          vec.push_back(v->colname);
-        }
-      }
+    db->sql(script);
+
+    rc = db->execute();
+    if (rc)
+      return vs;
+
+    //do stuff
+    string currentLastStartTime;
+    int fieldcount = db->fieldNames.size();
+    
+    for (auto& row : db->fieldValues){
       
-      string currentLastStartTime;
-      int rowCount = 0;
-      
-      while (!q->eof()) {
+      Json::Value meta;
+      Json::Value body;
+      stringstream ss;
 
-        Json::Value meta;
-        Json::Value body;
-        stringstream ss;
+      boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-        boost::uuids::uuid uuid = boost::uuids::random_generator()();
+      meta["index"]["_index"] = "cdc";
+      meta["index"]["_type"] = topic["name"].asString();
+      meta["index"]["_id"] = boost::uuids::to_string(uuid);
 
-        meta["index"]["_index"] = "cdc";
-        meta["index"]["_type"] = topic["name"].asString();
-        meta["index"]["_id"] = boost::uuids::to_string(uuid);
-        
-        for (int i = 0; i < q->fieldcount; i++){
-          body[vec.at(i)] = q->fields(i)->tostr();
-        }
-        body["processed"] = 0;
-        body["channel"] = channelName;
-        body["modelName"] = topic["modelName"].asString();
-
-        //Update the start time
-        currentLastStartTime = body["start_time"].asString();
-
-        //.write will tack on a \n after completion
-        Json::FastWriter writer;
-        auto compactMeta = writer.write(meta);
-        auto compactBody = writer.write(body);
-
-        ss << compactMeta << compactBody;
-
-        spdlog::get("logger")->info() << ss.str();
-
-        auto sv = shared_ptr<string>(new string(ss.str()));
-        vs.push_back(sv);
-        
-        q->next();
+      for (int i = 0; i < fieldcount; i++){
+        body[*db->fieldNames.at(i)] = *row.at(i);
       }
+      body["processed"] = 0;
+      body["channel"] = channelName;
+      body["modelName"] = topic["modelName"].asString();
 
-      //Store this in lmdb
-      stringstream ss1;
-      ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
-      spdlog::get("logger")->info() << ss1.str();
-      /**
-        Only update if rows returned
-      **/
-      if (vs.size() > 0){
-        string nm = topic["name"].asString();
-        setLmdbValue(nm, currentLastStartTime);
-      }      
+      //Update the start time
+      currentLastStartTime = body["start_time"].asString();
 
+      //.write will tack on a \n after completion
+      Json::FastWriter writer;
+      auto compactMeta = writer.write(meta);
+      auto compactBody = writer.write(body);
+
+      ss << compactMeta << compactBody;
+
+      spdlog::get("logger")->info() << ss.str();
+
+      auto sv = shared_ptr<string>(new string(ss.str()));
+      vs.push_back(sv);
+      
     }
-    catch (TDSPP::Exception &e) {
-      spdlog::get("logger")->error() << e.message;
-    }
-    catch (std::exception& e){
-      spdlog::get("logger")->error() << e.what();
+
+    //Store this in lmdb
+    stringstream ss1;
+    ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
+    spdlog::get("logger")->info() << ss1.str();
+    /**
+    Only update if rows returned
+    **/
+    if (vs.size() > 0){
+      string nm = topic["name"].asString();
+      setLmdbValue(nm, currentLastStartTime);
     }
 
     return vs;
   };
-
+  
   auto processTopic = [](string& channelName, Json::Value& topic)->vector<shared_ptr<string>>{
 
     //start timer

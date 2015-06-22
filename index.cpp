@@ -19,6 +19,8 @@ auto setupLogging = []()->void {
       << "\n";
   }
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
   size_t q_size = 1048576; //queue size must be power of 2
   spdlog::set_async_mode(q_size);
 
@@ -53,13 +55,13 @@ auto setupLmdbEnv = []()->void {
   string dbPath = full_path.generic_string() + "/db";
 
   if (boost::filesystem::create_directory("./db")){
-    //boost::filesystem::path full_path(boost::filesystem::current_path());
     spdlog::get("logger")->info() << "Successfully created directory"
       << full_path
       << "/db"
-      << "\n";    
+      << "\n";
   }
-  //createLmdb(dbPath);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+  createLmdb(dbPath);
 
 };
 

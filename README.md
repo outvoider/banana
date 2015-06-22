@@ -19,10 +19,10 @@ This project could not be possible without the following fabulous libraries
 * [lmdb](http://symas.com/mdb/) Insanely fast embedded key/value database
 * [jsoncpp](https://github.com/open-source-parsers/jsoncpp) Open source JSON reader/writer
 * [freetds](https://github.com/FreeTDS/freetds) Free implementation of Sybase's DB-Library, CT-Library
-* [tdspp](https://github.com/htaox/tdspp) Wrapper for FreeTDS created by Voidsoft AB
 * [spdlog](https://github.com/gabime/spdlog) Extremely fast logger
 * [Simple-Web-Server](https://github.com/eidheim/Simple-Web-Server) Simple and fast HTTP/S server/client lib
 * [boost](http://sourceforge.net/projects/boost/files/boost-binaries/) Well, you know
 
 ###Install
-Compiled using VS2013, will definitely work with g++ with -std=c++11 flag.
+VS2013 project included.
+For compiling with g++, use the Makefile.
