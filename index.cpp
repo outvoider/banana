@@ -13,7 +13,7 @@ auto setupLogging = []()->void {
 
   if (boost::filesystem::create_directory("./log")){
     boost::filesystem::path full_path(boost::filesystem::current_path());
-    spdlog::get("logger")->info() << "Successfully created directory"
+    cout << "Successfully created directory"
       << full_path
       << "/log"
       << "\n";
@@ -60,8 +60,21 @@ auto setupLmdbEnv = []()->void {
       << "/db"
       << "\n";
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   createLmdb(dbPath);
+
+};
+
+auto waitForLmdbCreate = [](){
+  boost::filesystem::path full_path(boost::filesystem::current_path());
+  string dbFile = full_path.generic_string() + "/db/data.mdb";
+
+  while (1){
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    if (boost::filesystem::exists(dbFile)){
+      break;
+    }
+  }
 
 };
 
@@ -106,6 +119,9 @@ int main(int argc, char *argv[]) {
   if (globalConfig["sleep_ms"].isNumeric()){
     sleep_ms = globalConfig["sleep_ms"].asUInt();
   }
+
+  //wait until lmdb is created
+  waitForLmdbCreate();
 
   //spin foreveer
   while (1){
