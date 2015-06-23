@@ -95,29 +95,6 @@
           "a readable SQL statement.\n"
           ]
       }   
-    ],
-    "rnumber": [
-      {
-        "name": "researchproject:status",
-        "modelName": "_Research Project",
-        "script": [
-          "DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10);\n",
-          "-- Obtain the beginning of the time interval.\n",
-          "-- SET @begin_time = GETDATE() -1;\n",
-          "SET @begin_time = dateadd(ss, 1, $(LAST_EXEC_TIME) );\n",
-          "-- Obtain the end of the time interval.\n",
-          "SET @end_time = GETDATE();\n",
-          "-- Map the time interval to a change data capture query range.\n",
-          "SET @from_lsn = sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', @begin_time);\n",
-          "SET @to_lsn = sys.fn_cdc_map_time_to_lsn('largest less than or equal', @end_time);\n",
-          "-- Return the net changes occurring within the query window.\n",
-          "select y._uid, left(convert(varchar(24), y.start_time, 126), 19) start_time, y.oid, y.status, y.__$start_lsn, y.__$seqval, y.__$operation, y.__$update_mask from ( select max(sys.fn_cdc_map_lsn_to_time ( __$start_lsn )) max_start_time, b._uid FROM cdc.fn_cdc_get_all_changes_dbo__Project(@from_lsn, @to_lsn, 'all') a inner join [__Research Project] b on a.oid = b.oid group by b._uid ) z \n",
-          "inner join\n",
-          "( select sys.fn_cdc_map_lsn_to_time ( __$start_lsn ) start_time, a.__$start_lsn, a.__$seqval, a.__$operation, a.__$update_mask, convert(varchar(max), a.oid, 2) oid, convert(varchar(max), a.status, 2) status, b._uid FROM cdc.fn_cdc_get_all_changes_dbo__Project(@from_lsn, @to_lsn, 'all') a inner join [__Research Project] b on a.oid = b.oid where a.status is not null) y \n",
-          "on z._uid = y._uid and z.max_start_time = y.start_time order by y.start_time;\n"
-          ]
-      }   
-    ],
-    
+    ]
   }	
 }
