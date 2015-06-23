@@ -147,6 +147,13 @@ namespace {
       }
       body["processed"] = 0;
       body["channel"] = channelName;
+      
+      /**
+        which module(s) should this record be replicated to?
+      **/
+      if (topic["targetStores"].isArray()){
+        body["targetStores"] = topic["targetStores"];
+      }
       body["modelName"] = topic["modelName"].asString();
 
       //Update the start time
