@@ -41,9 +41,9 @@ int banana::TDSClient::connect() {
 };
 
 int banana::TDSClient::useDatabase(string& db){
-  if ("CRMS" && (erc = dbuse(dbproc, "CRMS")) == FAIL) {
-    spdlog::get("logger")->error() << "useDatabase() unable to use to database " << db;
-    return 0;
+  if ((erc = dbuse(dbproc, db.c_str())) == FAIL) {
+    spdlog::get("logger")->error() << "useDatabase() unable to use database " << db;
+    return 1;
   }
   return 0;
 };
