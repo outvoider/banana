@@ -159,12 +159,18 @@ int banana::TDSClient::fetchData() {
 };
 
 int banana::TDSClient::execute() {
-  dbsqlexec(dbproc);
+
+  auto status = dbsqlexec(dbproc);
+
+  if (status == FAIL) {
+    spdlog::get("logger")->error() << "execute() dbsqlexec failed";
+    return 1;
+  }
 
   while ((erc = dbresults(dbproc)) != NO_MORE_RESULTS) {
 
     if (erc == FAIL) {
-      spdlog::get("logger")->error() << "execute() dbresults failed";      
+      spdlog::get("logger")->error() << "execute() no results";
       return 1;
     }
 
@@ -175,10 +181,10 @@ int banana::TDSClient::execute() {
 
     /*
       fetch data
-    */
+      */
     fetchData();
   }
-
+  
   dbclose(dbproc);
   dbexit();
 

@@ -21,8 +21,8 @@ auto setupLogging = []()->void {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-  size_t q_size = 1048576; //queue size must be power of 2
-  spdlog::set_async_mode(q_size);
+  //size_t q_size = 1048576; //queue size must be power of 2
+  //spdlog::set_async_mode(q_size);
 
   std::vector<spdlog::sink_ptr> sinks;
   //sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());

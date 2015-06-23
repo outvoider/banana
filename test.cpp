@@ -186,7 +186,7 @@ namespace {
     auto esHost = globalConfig["es"][::env]["host"].asString();
     auto esPort = globalConfig["es"][::env]["port"].asString();
 
-    //curl - XDELETE 'localhost:9200/customer?pretty'
+    //curl -XDELETE 'localhost:9200/customer?pretty'
     HttpClient c0(esHost + ":" + esPort);
     auto r0 = c0.request("DELETE", "/cdc?pretty");
 
