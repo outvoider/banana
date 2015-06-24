@@ -293,7 +293,8 @@ namespace {
       v.push_back(unique_ptr<banana::channel>(new banana::channel(channelName, channel)));
     }
 
-    parallel_for_each(v.begin(), v.end(), processChannel);
+    //parallel_for_each(v.begin(), v.end(), processChannel);
+    std::for_each(v.begin(), v.end(), processChannel);
     
     return 0;
   };
