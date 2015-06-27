@@ -173,10 +173,13 @@ namespace {
       
     }
 
-    //Store this in lmdb
+    /*
     stringstream ss1;
     ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
     spdlog::get("logger")->info() << ss1.str();
+    */
+
+    //Store this in lmdb
     /**
     Only update if rows returned
     **/
@@ -215,7 +218,7 @@ namespace {
     auto vs = executeScript(channelName, topic, script);
 
     stringstream ss;
-    ss << "Topic => " << topic["name"].asString() << " completed.  Elapsed => ";
+    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs.size() << " Elapsed = > ";
     //timer("Topic => " + topic["name"].asString() + " completed.  Elapsed => ", t1);
     string msg = ss.str();
     timer(msg, t1);
@@ -245,9 +248,11 @@ namespace {
     //debug detail, else no need
     //spdlog::get("logger")->info() << o.str();
 
+    /*
     Json::Value jv;
     o >> jv;
     spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
+    */
 
     ss.str("");
     ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
