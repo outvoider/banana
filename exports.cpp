@@ -208,7 +208,9 @@ namespace {
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
     script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
-    spdlog::get("logger")->info() << script;
+    
+    //do we really need to log the script itself?
+    //spdlog::get("logger")->info() << script;
 
     auto vs = executeScript(channelName, topic, script);
 
