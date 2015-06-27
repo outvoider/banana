@@ -229,10 +229,15 @@ namespace {
   auto bulkToElastic = [](vector<shared_ptr<string>>& v)->int{
 
     stringstream ss;
+    ostringstream oss;
 
+    string sp;
     for (auto& s : v){
-      ss << *s;
+      //oss << *s;
+      sp += *s;
     }
+    //ss.seekg(0, std::ios::beg);
+    oss << sp;
 
     auto esHost = globalConfig["es"][::env]["host"].asString();
     auto esPort = globalConfig["es"][::env]["port"].asString();
@@ -241,19 +246,21 @@ namespace {
     auto t1 = std::chrono::high_resolution_clock::now();
 
     HttpClient bulkClient(esHost + ":" + esPort);
-    auto r = bulkClient.request("POST", "/_bulk", ss);
+    //std::map<string, string> header;
+    //header["Content-Type"] = "application/json";
+    auto r = bulkClient.request("POST", "/_bulk", oss);
     stringstream o;
     o << r->content.rdbuf();
 
     //debug detail, else no need
-    //spdlog::get("logger")->info() << o.str();
-
-    /*
+    
     Json::Value jv;
     o >> jv;
-    spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
-    */
-
+    if (!jv["error"].isNull()){
+      spdlog::get("logger")->info() << o.str();
+    }
+    //spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
+    
     ss.str("");
     ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
     string msg = ss.str();
