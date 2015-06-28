@@ -229,16 +229,11 @@ namespace {
   auto bulkToElastic = [](vector<shared_ptr<string>>& v)->int{
 
     stringstream ss;
-    ostringstream oss;
-
-    string sp;
+    
     for (auto& s : v){
-      //oss << *s;
-      sp += *s;
+      ss << *s;
     }
-    //ss.seekg(0, std::ios::beg);
-    oss << sp;
-
+    
     auto esHost = globalConfig["es"][::env]["host"].asString();
     auto esPort = globalConfig["es"][::env]["port"].asString();
 
@@ -248,7 +243,7 @@ namespace {
     HttpClient bulkClient(esHost + ":" + esPort);
     //std::map<string, string> header;
     //header["Content-Type"] = "application/json";
-    auto r = bulkClient.request("POST", "/_bulk", oss);
+    auto r = bulkClient.request("POST", "/_bulk", ss);
     stringstream o;
     o << r->content.rdbuf();
 

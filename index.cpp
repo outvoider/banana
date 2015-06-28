@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 
   //wait until lmdb is created
   waitForLmdbCreate();
-
+  
   //spin foreveer
   while (1){
     start();
