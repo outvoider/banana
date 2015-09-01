@@ -5,6 +5,45 @@ LOGINREC *login;
 DBPROCESS *dbproc;
 RETCODE erc;
 
+int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
+  if ((dbproc == NULL) || (DBDEAD(dbproc))) {
+    spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
+    return(INT_CANCEL);
+  }
+  else
+  {
+    spdlog::get("logger")->error() << "DB-Library error: " << dberrstr;
+
+    if (oserr != DBNOERR){
+      spdlog::get("logger")->error() << "Operating-system error: " << oserrstr;
+    }
+      
+    return(INT_CANCEL);
+  }
+}
+
+int msg_handler(DBPROCESS* dbproc, DBINT msgno, int msgstate, int severity, char* msgtext, char* srvname, char* procname, int line) {
+  /*
+  ** If it's a database change message, we'll ignore it.
+  ** Also ignore language change message.
+  */
+  if (msgno == 5701 || msgno == 5703)
+    return(0);
+  
+  printf("Msg %d, Level %d, State %d\n", msgno, severity, msgstate);
+
+  if (strlen(srvname) > 0)
+    printf("Server '%s', ", srvname);
+  if (strlen(procname) > 0)
+    printf("Procedure '%s', ", procname);
+  if (line > 0)
+    printf("Line %d", line);
+
+  printf("\n\t%s\n", msgtext);
+  
+  return(0);
+}
+
 int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
   host = _host;
   user = _user;
@@ -21,6 +60,10 @@ int banana::TDSClient::init() {
 };
 
 int banana::TDSClient::connect() {
+
+  //handle server/network errors
+  dberrhandle(err_handler);
+  //dbmsghandle(msg_handler);
 
   // Get a LOGINREC.
   if ((login = dblogin()) == NULL) {
