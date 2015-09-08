@@ -8,6 +8,7 @@ RETCODE erc;
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {
     spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
+    dbexit();
     return(INT_CANCEL);
   }
   else
@@ -17,7 +18,10 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
     if (oserr != DBNOERR){
       spdlog::get("logger")->error() << "Operating-system error: " << oserrstr;
     }
-      
+    
+    dbclose(dbproc);
+    dbexit();
+
     return(INT_CANCEL);
   }
 }
