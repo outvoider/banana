@@ -305,6 +305,8 @@ namespace {
     //parallel_for_each(v.begin(), v.end(), processChannel);
     std::for_each(v.begin(), v.end(), processChannel);
     
+    v.clear();
+
     return 0;
   };
 

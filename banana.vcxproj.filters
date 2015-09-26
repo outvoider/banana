@@ -15,9 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="config.json" />
     <None Include="scripts.sql" />
     <None Include="config.sample.json" />
+    <None Include="config-backup.json" />
+    <None Include="config.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="index.cpp">

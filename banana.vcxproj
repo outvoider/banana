@@ -143,6 +143,7 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="config-backup.json" />
     <None Include="config.json" />
     <None Include="config.sample.json" />
     <None Include="scripts.sql" />
