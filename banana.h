@@ -43,14 +43,20 @@ namespace banana {
     vector<shared_ptr<string>> fieldNames;
     vector<vector<shared_ptr<string>>> fieldValues;
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
-    ~TDSClient() {}
+    ~TDSClient() {
+      dbexit();
+    }
   private:
     string host;
     string user;
     string pass;
     string script;
     int ncols;
-    int row_code;    
+    int row_code;
+    LOGINREC *login;
+    DBPROCESS *dbproc;
+    RETCODE erc;
+
   };
 
 };

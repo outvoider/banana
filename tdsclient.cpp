@@ -1,9 +1,11 @@
 #include "banana.h"
 #include "spdlog/spdlog.h"
 
+/*
 LOGINREC *login;
 DBPROCESS *dbproc;
 RETCODE erc;
+*/
 
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {

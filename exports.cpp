@@ -102,9 +102,9 @@ namespace {
     return res;
   };
 
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->vector < shared_ptr<string> > {
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script, vector<shared_ptr<string>>& vs)->int {
 
-    vector<shared_ptr<string>> vs;
+    //vector<shared_ptr<string>> vs;
 
     auto conn = globalConfig["connection"][channelName][::env];
 
@@ -114,17 +114,17 @@ namespace {
 
     rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
     if (rc)
-      return vs;
+      return rc;
     
     rc = db->useDatabase(conn["database"].asString());
     if (rc)
-      return vs;
+      return rc;
 
     db->sql(script);
 
     rc = db->execute();
     if (rc)
-      return vs;
+      return rc;
 
     //do stuff
     string currentLastStartTime;
@@ -188,10 +188,10 @@ namespace {
       setLmdbValue(nm, currentLastStartTime);
     }
 
-    return vs;
+    return 0;
   };
   
-  auto processTopic = [](string& channelName, Json::Value& topic)->vector<shared_ptr<string>>{
+  auto processTopic = [](string& channelName, Json::Value& topic, vector<shared_ptr<string>>& vs)->int{
 
     //start timer
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -215,7 +215,7 @@ namespace {
     //do we really need to log the script itself?
     //spdlog::get("logger")->info() << script;
 
-    auto vs = executeScript(channelName, topic, script);
+    auto rc = executeScript(channelName, topic, script, vs);
 
     stringstream ss;
     ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs.size() << " Elapsed = > ";
@@ -223,7 +223,7 @@ namespace {
     string msg = ss.str();
     timer(msg, t1);
 
-    return vs;
+    return 0;
   };
 
   auto bulkToElastic = [](vector<shared_ptr<string>>& v)->int{
@@ -272,13 +272,16 @@ namespace {
     auto channel = pr.topics;
     
     for (int index = 0; index < channel.size(); ++index){      
-      auto vs = processTopic(pr.name, channel[index]);
+      vector<shared_ptr<string>> vs;
+      processTopic(pr.name, channel[index], vs);
       combined.insert(combined.end(), vs.begin(), vs.end());
+      vs.clear();
     }
 
     //When all is done, bulkload to elasticsearch
     if (combined.size() > 0){
       bulkToElastic(combined);
+      combined.clear();
     }
     
     return 0;
