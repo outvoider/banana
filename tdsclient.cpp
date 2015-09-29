@@ -148,6 +148,7 @@ int banana::TDSClient::getMetadata() {
       return 1;
     }
   }
+
   return 0;
 };
 
@@ -160,8 +161,7 @@ int banana::TDSClient::fetchData() {
     switch (row_code) {
     case REG_ROW:
       for (pcol = columns; pcol - columns < ncols; pcol++) {
-        char *buffer = pcol->status == -1 ?
-          "NULL" : pcol->buffer;
+        char *buffer = pcol->status == -1 ? "NULL" : pcol->buffer;
 
         shared_ptr<string> v = shared_ptr<string>(new string(buffer));
         row.push_back(v);

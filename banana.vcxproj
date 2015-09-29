@@ -88,7 +88,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\cygwin64\home\htao\jsoncpp\include;C:\cygwin64\home\htao\tdspp\include;C:\cygwin64\home\htao\freetds\include;C:\cygwin64\home\htao\freetds\build\include;C:\cygwin64\home\htao\jsoncons\src;C:\cygwin64\home\htao\banana\include;C:\local\boost_1_57_0;C:\cygwin64\home\htao\Simple-Web-Server;C:\cygwin64\home\htao\lightningdb-win\liblmdb;C:\cygwin64\home\htao\lightningdb-win\liblmdb\build_compability_includes\real</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -98,6 +98,7 @@
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)config.json" "$(TargetDir)config.json"
 copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir)mdb.dll
+
 
 </Command>
     </PreBuildEvent>
@@ -156,6 +157,7 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="banana.h" />
+    <ClInclude Include="lmdb-client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <json/json.h>
-#include "lmdb.h"
+//#include "lmdb.h"
 #include <sybfront.h>	/* sybfront.h always comes first */
 #include <sybdb.h>	/* sybdb.h is the only other file you need */
 
@@ -44,7 +44,7 @@ namespace banana {
     vector<vector<shared_ptr<string>>> fieldValues;
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
     ~TDSClient() {
-      dbexit();
+      dbexit();      
     }
   private:
     string host;
@@ -61,7 +61,7 @@ namespace banana {
 
 };
 
-static MDB_env *lmdb_env;
-static MDB_dbi lmdb_dbi;
+//static MDB_env *lmdb_env;
+//static MDB_dbi lmdb_dbi;
 
 #endif

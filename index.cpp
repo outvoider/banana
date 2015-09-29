@@ -7,6 +7,12 @@
 #include "exports.cpp"
 #include "test.cpp"
 
+#ifdef _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif  
+
 using namespace std;
 
 auto setupLogging = []()->void {
@@ -33,52 +39,11 @@ auto setupLogging = []()->void {
   
 };
 
-auto createLmdb = [](string& dbPath)->void {
-  int rc;
-  rc = mdb_env_create(&lmdb_env);
-  rc = mdb_env_set_mapsize(lmdb_env, 104857600);
-  rc = mdb_env_set_maxdbs(lmdb_env, 4);
-  //rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0664);
-  rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0);
-  if (rc != 0){
-    spdlog::get("logger")->error() << "Failed to create lmdb.  Returned => " << rc;
-    spdlog::get("logger")->flush();
-    mdb_env_close(lmdb_env);
-  }
-  else {
-    spdlog::get("logger")->info() << "Successfully created lmdb.";
-  }
-};
-
-auto setupLmdbEnv = []()->void {
-  boost::filesystem::path full_path(boost::filesystem::current_path());
-  string dbPath = full_path.generic_string() + "/db";
-
-  if (boost::filesystem::create_directory("./db")){
-    spdlog::get("logger")->info() << "Successfully created directory"
-      << full_path
-      << "/db"
-      << "\n";
-  }
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  createLmdb(dbPath);
-
-};
-
-auto waitForLmdbCreate = [](){
-  boost::filesystem::path full_path(boost::filesystem::current_path());
-  string dbFile = full_path.generic_string() + "/db/data.mdb";
-
-  while (1){
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    if (boost::filesystem::exists(dbFile)){
-      break;
-    }
-  }
-
-};
-
 int main(int argc, char *argv[]) {
+
+#ifdef _DEBUG
+  _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
+#endif
 
   int res = loadConfigFile();
   if (res){
@@ -86,8 +51,6 @@ int main(int argc, char *argv[]) {
   }
 
   setupLogging();
-
-  setupLmdbEnv();
 
   namespace po = boost::program_options;
   po::options_description desc("Allowed options");
@@ -121,13 +84,23 @@ int main(int argc, char *argv[]) {
   }
 
   //wait until lmdb is created
-  waitForLmdbCreate();
+  //waitForLmdbCreate();
   
+#ifdef _DEBUG
+  _CrtMemState s1;
+#endif
+
   //spin foreveer
   while (1){
     start();
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     spdlog::get("logger")->flush();
+    
+#ifdef _DEBUG
+    _CrtMemCheckpoint(&s1);
+    _CrtMemDumpStatistics(&s1);
+    //_CrtDumpMemoryLeaks();
+#endif
   }
   
   //will never get here anyway

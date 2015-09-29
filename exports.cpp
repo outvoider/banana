@@ -17,7 +17,8 @@
 #include "client_http.hpp"
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
-#include "lmdb.h"
+//#include "lmdb.h"
+#include "lmdb-client.hpp"
 
 using namespace std;
 
@@ -58,50 +59,7 @@ namespace {
 
     spdlog::get("logger")->info(ss.str());
   };
-
-  auto setLmdbValue = [](string& k, string& v){
     
-    MDB_txn *txn;
-    MDB_val key, data;
-
-    int rc;
-    rc = mdb_txn_begin(lmdb_env, NULL, 0, &txn);
-    rc = mdb_open(txn, NULL, MDB_CREATE, &lmdb_dbi);
-
-    key.mv_size = k.size();
-    key.mv_data = (char*)k.c_str();
-    data.mv_size = v.size();
-    data.mv_data = (char*)v.c_str();
-    
-    rc = mdb_put(txn, lmdb_dbi, &key, &data, 0);
-    rc = mdb_txn_commit(txn);
-
-  };
-
-  auto getLmdbValue = [](string& k)->string{
-    
-    MDB_txn *txn;
-    MDB_val key, data;
-
-    int rc;
-    rc = mdb_txn_begin(lmdb_env, NULL, 0, &txn);
-    rc = mdb_open(txn, NULL, MDB_CREATE, &lmdb_dbi);
-
-    key.mv_size = k.size();
-    key.mv_data = (char*)k.c_str();
-
-    rc = mdb_get(txn, lmdb_dbi, &key, &data);
-    if (rc != 0){
-      mdb_txn_abort(txn);
-      return "";
-    }
-    
-    string res((const char*)data.mv_data, data.mv_size);
-
-    rc = mdb_txn_commit(txn);
-    return res;
-  };
-
   auto executeScript = [](const string channelName, const Json::Value& topic, string& script, vector<shared_ptr<string>>& vs)->int {
 
     //vector<shared_ptr<string>> vs;
@@ -185,7 +143,9 @@ namespace {
     **/
     if (vs.size() > 0){
       string nm = topic["name"].asString();
-      setLmdbValue(nm, currentLastStartTime);
+      
+      auto mdb = std::make_unique<::LMDBClient>();
+      mdb->setLmdbValue(nm, currentLastStartTime);
     }
 
     return 0;
@@ -206,7 +166,9 @@ namespace {
 
     //Fetch from lmdb store
     string nm = topic["name"].asString();
-    string storedLastStartTime = getLmdbValue(nm);
+    
+    auto mdb = std::make_unique<::LMDBClient>();
+    string storedLastStartTime = mdb->getLmdbValue(nm);
 
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
@@ -222,6 +184,8 @@ namespace {
     //timer("Topic => " + topic["name"].asString() + " completed.  Elapsed => ", t1);
     string msg = ss.str();
     timer(msg, t1);
+
+    scriptss.str("");
 
     return 0;
   };
@@ -265,7 +229,7 @@ namespace {
   };
 
   auto processChannel = [](unique_ptr<banana::channel>& channel_ptr)->int{
-    
+  
     vector<shared_ptr<string>> combined;
 
     auto pr = *channel_ptr;
@@ -292,7 +256,7 @@ namespace {
     auto channels = globalConfig["channels"];
 
     vector<unique_ptr<banana::channel>> v;
-
+    
     vector<string> names;
     for (auto const& id : channels.getMemberNames()) {
       names.push_back(id);
