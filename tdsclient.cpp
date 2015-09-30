@@ -50,6 +50,10 @@ int msg_handler(DBPROCESS* dbproc, DBINT msgno, int msgstate, int severity, char
   return(0);
 }
 
+banana::TDSClient::~TDSClient() {
+  //dbexit();
+}
+
 int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
   host = _host;
   user = _user;
@@ -62,10 +66,25 @@ int banana::TDSClient::init() {
     spdlog::get("logger")->error() << "dbinit() failed";
     return 1;
   }
+
+  /*
+    initialize shared ptrs
+  */
+  //fieldNamesPtr = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+  //fieldValuesPtr = make_shared<vector<shared_ptr<vector<shared_ptr<string>>>>>();
+
+  rows = make_unique<banana::TDSRows>();
+
   return 0;
 };
 
 int banana::TDSClient::connect() {
+
+  int rc = init();
+
+  if (rc){
+    return rc;
+  }
 
   //handle server/network errors
   dberrhandle(err_handler);
@@ -128,8 +147,9 @@ int banana::TDSClient::getMetadata() {
     }
 
     //cout << pcol->size << pcol->name;
-    fieldNames.push_back(shared_ptr<string>(new string(pcol->name)));
-
+    //fieldNames.push_back(shared_ptr<string>(new string(pcol->name)));
+    rows->fieldNamesPtr->push_back(shared_ptr<string>(new string(pcol->name)));
+    
     if ((pcol->buffer = (char*)calloc(1, pcol->size + 1)) == NULL){
       perror(NULL);
       return 1;
@@ -156,7 +176,8 @@ int banana::TDSClient::fetchData() {
 
   while ((row_code = dbnextrow(dbproc)) != NO_MORE_ROWS){
 
-    vector<shared_ptr<string>> row;
+    //vector<shared_ptr<string>> row;
+    auto row = make_shared<vector<shared_ptr<string>>>();
 
     switch (row_code) {
     case REG_ROW:
@@ -164,11 +185,12 @@ int banana::TDSClient::fetchData() {
         char *buffer = pcol->status == -1 ? "NULL" : pcol->buffer;
 
         shared_ptr<string> v = shared_ptr<string>(new string(buffer));
-        row.push_back(v);
-
+        //row.push_back(v);
+        row->push_back(v);
         //printf("%*s ", pcol->size, buffer);
       }
-      fieldValues.push_back(row);
+      //fieldValues.push_back(row);
+      rows->fieldValuesPtr->push_back(row);
       break;
 
     case BUF_FULL:

@@ -1,6 +1,7 @@
 #ifndef BANANA_H
 #define BANANA_H
 
+#include <iostream>
 #include <memory>
 #include <json/json.h>
 //#include "lmdb.h"
@@ -23,6 +24,21 @@ namespace banana {
     ~channel(){}
   };
 
+  class TDSRows {
+  public:  
+    shared_ptr<vector<shared_ptr<string>>> fieldNamesPtr;
+    shared_ptr<vector<shared_ptr<vector<shared_ptr<string>>>>> fieldValuesPtr;
+    TDSRows() {
+      /*
+      initialize shared ptrs
+      */
+      fieldNamesPtr = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+      fieldValuesPtr = make_shared<vector<shared_ptr<vector<shared_ptr<string>>>>>();
+    }
+    ~TDSRows(){
+    }
+  };
+
   class TDSClient{
   public:
     struct COL
@@ -40,12 +56,15 @@ namespace banana {
     int getMetadata();
     int fetchData();
     TDSClient(){};
-    vector<shared_ptr<string>> fieldNames;
-    vector<vector<shared_ptr<string>>> fieldValues;
+    //vector<shared_ptr<string>> fieldNames;
+    //vector<vector<shared_ptr<string>>> fieldValues;
+    unique_ptr<TDSRows> rows;
+
+    //shared_ptr<vector<shared_ptr<string>>> fieldNamesPtr;
+    //shared_ptr<vector<shared_ptr<vector<shared_ptr<string>>>>> fieldValuesPtr;
+
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
-    ~TDSClient() {
-      dbexit();      
-    }
+    ~TDSClient();
   private:
     string host;
     string user;

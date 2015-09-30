@@ -86,9 +86,11 @@ namespace {
 
     //do stuff
     string currentLastStartTime;
-    int fieldcount = db->fieldNames.size();
-    
-    for (auto& row : db->fieldValues){
+    //int fieldcount = db->fieldNames.size();
+    int fieldcount = db->rows->fieldNamesPtr->size();
+
+    //for (auto& row : db->fieldValues){
+    for (auto& row : *(db->rows->fieldValuesPtr)){
       
       Json::Value meta;
       Json::Value body;
@@ -101,7 +103,9 @@ namespace {
       meta["index"]["_id"] = boost::uuids::to_string(uuid);
 
       for (int i = 0; i < fieldcount; i++){
-        body[*db->fieldNames.at(i)] = *row.at(i);
+        //body[*db->fieldNames.at(i)] = *row.at(i);
+        //body[*db->fieldNamesPtr->at(i)] = *row.at(i);
+        body[*db->rows->fieldNamesPtr->at(i)] = *row->at(i);
       }
       body["processed"] = 0;
       body["channel"] = channelName;
