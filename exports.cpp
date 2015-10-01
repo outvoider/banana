@@ -20,6 +20,8 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 //#include "lmdb.h"
 #include "lmdb-client.hpp"
 
+#include "FreeTDSHelper.h"
+
 using namespace std;
 
 namespace {
@@ -66,6 +68,35 @@ namespace {
 
     auto conn = globalConfig["connection"][channelName][::env];
 
+    FreeTDSHelper helper;
+
+    if (helper.openDB((char*)conn["host"].asString().c_str(), (char*)conn["user"].asString().c_str(), (char*)conn["pass"].asString().c_str(), (char*)conn["database"].asString().c_str()) == false){
+      return -1;
+    }
+
+    //http://blog.csdn.net/qwidget/article/details/6444829  
+    if (helper.query((char*)script.c_str()) == -1)
+    {
+      printf("%s/n", helper.getErrorMessage());
+      return -1;
+    }
+    printf("there are %d rows, %d columns/n", helper.getRowCount(), helper.getColumnCount());
+    
+    for (int i = 0; i<helper.getRowCount(); ++i)
+    {
+      ROW* r = helper.getRow(i);
+      for (int j = 0; j<helper.getColumnCount(); ++j)
+      {
+        printf("%s/t", r->getField(j));
+      }
+      printf("/n");
+    }
+    helper.releaseResultSet();  
+
+    return 0;
+
+    //
+
     int rc;
 
     auto db = unique_ptr<banana::TDSClient>(new banana::TDSClient());
@@ -83,14 +114,14 @@ namespace {
     rc = db->execute();
     if (rc)
       return rc;
-
+    
     //do stuff
     string currentLastStartTime;
     //int fieldcount = db->fieldNames.size();
-    int fieldcount = db->rows->fieldNamesPtr->size();
+    int fieldcount = db->rows->fieldNames->size();
 
     //for (auto& row : db->fieldValues){
-    for (auto& row : *(db->rows->fieldValuesPtr)){
+    for (auto& row : *(db->rows->fieldValues)){
       
       Json::Value meta;
       Json::Value body;
@@ -105,7 +136,8 @@ namespace {
       for (int i = 0; i < fieldcount; i++){
         //body[*db->fieldNames.at(i)] = *row.at(i);
         //body[*db->fieldNamesPtr->at(i)] = *row.at(i);
-        body[*db->rows->fieldNamesPtr->at(i)] = *row->at(i);
+        auto n = db.get()->rows->fieldNames->at(i)->value;
+        body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
       }
       body["processed"] = 0;
       body["channel"] = channelName;
@@ -243,13 +275,13 @@ namespace {
       vector<shared_ptr<string>> vs;
       processTopic(pr.name, channel[index], vs);
       combined.insert(combined.end(), vs.begin(), vs.end());
-      vs.clear();
+      //vs.clear();
     }
 
     //When all is done, bulkload to elasticsearch
     if (combined.size() > 0){
       bulkToElastic(combined);
-      combined.clear();
+      //combined.clear();
     }
     
     return 0;
@@ -276,7 +308,7 @@ namespace {
     //parallel_for_each(v.begin(), v.end(), processChannel);
     std::for_each(v.begin(), v.end(), processChannel);
     
-    v.clear();
+    //v.clear();
 
     return 0;
   };

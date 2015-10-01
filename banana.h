@@ -24,16 +24,27 @@ namespace banana {
     ~channel(){}
   };
 
+  template<typename T>
+  class TDSCell {
+  public:
+    T value;
+    TDSCell<T>(T _val):value(_val){}
+    ~TDSCell<T>(){}
+  };
+
+  typedef vector<shared_ptr<TDSCell<string>>> RowOfString;
+  typedef vector<shared_ptr<vector<shared_ptr<TDSCell<string>>>>> TableOfRowsOfString;
+
   class TDSRows {
   public:  
-    shared_ptr<vector<shared_ptr<string>>> fieldNamesPtr;
-    shared_ptr<vector<shared_ptr<vector<shared_ptr<string>>>>> fieldValuesPtr;
+    shared_ptr<RowOfString> fieldNames;
+    shared_ptr<TableOfRowsOfString> fieldValues;
     TDSRows() {
       /*
       initialize shared ptrs
       */
-      fieldNamesPtr = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
-      fieldValuesPtr = make_shared<vector<shared_ptr<vector<shared_ptr<string>>>>>();
+      fieldNames = make_shared<RowOfString>();
+      fieldValues = make_shared<TableOfRowsOfString>();
     }
     ~TDSRows(){
     }
@@ -41,12 +52,17 @@ namespace banana {
 
   class TDSClient{
   public:
+    /*
     struct COL
     {
       char *name;
       char *buffer;
       int type, size, status;
     } *columns, *pcol;
+    */
+    vector<char*> buffers;
+    vector<int> nullbind;
+
     int init();
     int connect();
     int connect(string& _host, string& _user, string& _pass);
@@ -56,13 +72,7 @@ namespace banana {
     int getMetadata();
     int fetchData();
     TDSClient(){};
-    //vector<shared_ptr<string>> fieldNames;
-    //vector<vector<shared_ptr<string>>> fieldValues;
     unique_ptr<TDSRows> rows;
-
-    //shared_ptr<vector<shared_ptr<string>>> fieldNamesPtr;
-    //shared_ptr<vector<shared_ptr<vector<shared_ptr<string>>>>> fieldValuesPtr;
-
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
     ~TDSClient();
   private:
