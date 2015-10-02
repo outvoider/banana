@@ -1,12 +1,6 @@
 #include "banana.h"
 #include "spdlog/spdlog.h"
 
-/*
-LOGINREC *login;
-DBPROCESS *dbproc;
-RETCODE erc;
-*/
-
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {
     spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
@@ -51,10 +45,7 @@ int msg_handler(DBPROCESS* dbproc, DBINT msgno, int msgstate, int severity, char
 }
 
 banana::TDSClient::~TDSClient() {
-  //dbexit();
-  //for (auto&e : buffers){
-  //  free(e);
-  //}
+  
 }
 
 int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
@@ -129,8 +120,6 @@ void banana::TDSClient::sql(string& _script){
 
 int banana::TDSClient::getMetadata() {
   
-  rows->fieldNames->clear();
-
   ncols = dbnumcols(dbproc);
   
   if ((columns = (COL*)calloc(ncols, sizeof(struct COL))) == NULL) {
@@ -168,11 +157,11 @@ int banana::TDSClient::getMetadata() {
     //int colsize = 255; // dbcollen(dbproc, c + 1);
     //int status;
     
-    //if (SYBCHAR != pcol->type) {
-    //  pcol->size = dbprcollen(dbproc, c);
-    //  if (pcol->size > 255)
-    //    pcol->size = 255;
-    //}
+    if (SYBCHAR != pcol->type) {
+      pcol->size = dbprcollen(dbproc, c);
+      if (pcol->size > 255)
+        pcol->size = 255;
+    }
 
     auto col = make_shared<TDSCell<string>>(pcol->name);
     //auto col = make_shared<TDSCell<string>>(colname);
@@ -204,17 +193,12 @@ int banana::TDSClient::getMetadata() {
 
 int banana::TDSClient::fetchData() {
   
-  rows->fieldValues->clear();
-
   while ((row_code = dbnextrow(dbproc)) != NO_MORE_ROWS){
-
-    int cidx = 0;
 
     auto row = make_shared<banana::RowOfString>();
 
     switch (row_code) {
     case REG_ROW:
-      //cidx = 0;
       for (pcol = columns; pcol - columns < ncols; pcol++) {
       //for (auto& e : *rows->fieldNames){
         char *buffer = pcol->status == -1 ? "NULL" : pcol->buffer;
@@ -222,7 +206,6 @@ int banana::TDSClient::fetchData() {
         //char* buffer = (nullbind.at(cidx) == -1 ? "NULL" : buffers.at(cidx));
         auto v = make_shared<banana::TDSCell<string>>(buffer);
         row->push_back(v);
-        cidx++;
       }
 
       rows->fieldValues->push_back(row);

@@ -20,8 +20,6 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 //#include "lmdb.h"
 #include "lmdb-client.hpp"
 
-//#include "FreeTDSHelper.h"
-
 using namespace std;
 
 namespace {
@@ -87,10 +85,8 @@ namespace {
 
     //do stuff
     string currentLastStartTime;
-    //int fieldcount = db->fieldNames.size();
     int fieldcount = db->rows->fieldNames->size();
 
-    //for (auto& row : db->fieldValues){
     for (auto& row : *(db->rows->fieldValues)){
       
       Json::Value meta;
@@ -104,8 +100,6 @@ namespace {
       meta["index"]["_id"] = boost::uuids::to_string(uuid);
 
       for (int i = 0; i < fieldcount; i++){
-        //body[*db->fieldNames.at(i)] = *row.at(i);
-        //body[*db->fieldNamesPtr->at(i)] = *row.at(i);
         auto n = db.get()->rows->fieldNames->at(i)->value;
         body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
       }
@@ -250,13 +244,13 @@ namespace {
     for (int index = 0; index < channel.size(); ++index){      
       auto vs = processTopic(pr.name, channel[index]);
       combined->insert(combined->end(), vs->begin(), vs->end());
-      vs.reset();
+      //vs.reset();
     }
 
     //When all is done, bulkload to elasticsearch
     if (combined->size() > 0){
       bulkToElastic(combined);
-      combined.reset();
+      //combined.reset();
     }
     
     return 0;
@@ -266,8 +260,7 @@ namespace {
 
     //parallel_for_each(v.begin(), v.end(), processChannel);
     std::for_each(banana::channels.begin(), banana::channels.end(), processChannel);    
-    //v.clear();
-
+    
     return 0;
   };
 

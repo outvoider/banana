@@ -83,9 +83,6 @@ int main(int argc, char *argv[]) {
     sleep_ms = globalConfig["sleep_ms"].asUInt();
   }
 
-  //wait until lmdb is created
-  //waitForLmdbCreate();
-  
 #ifdef _DEBUG
   _CrtMemState s1;
 #endif
@@ -102,10 +99,9 @@ int main(int argc, char *argv[]) {
     for (auto i = 0; i < channels.size(); i++) {
       auto channelObj = channels[names[i]];
       string channelName = names[i];
-      //v.push_back(unique_ptr<banana::channel>(new banana::channel(channelName, channel)));
-      auto channel = banana::channel(channelName, channelObj);
-      banana::channels.push_back(channel);
       
+      auto channel = banana::channel(channelName, channelObj);
+      banana::channels.push_back(channel);      
     }
 
   };
@@ -116,7 +112,6 @@ int main(int argc, char *argv[]) {
   while (1){
     
     start();
-
 
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     spdlog::get("logger")->flush();
