@@ -24,6 +24,8 @@ namespace banana {
     ~channel(){}
   };
 
+  static vector<banana::channel> channels;
+
   template<typename T>
   class TDSCell {
   public:
@@ -52,16 +54,15 @@ namespace banana {
 
   class TDSClient{
   public:
-    /*
     struct COL
     {
       char *name;
       char *buffer;
       int type, size, status;
     } *columns, *pcol;
-    */
-    vector<char*> buffers;
-    vector<int> nullbind;
+    
+    //vector<char*> buffers;
+    //vector<int> nullbind;
 
     int init();
     int connect();
@@ -71,6 +72,7 @@ namespace banana {
     int execute();
     int getMetadata();
     int fetchData();
+    void close();
     TDSClient(){};
     unique_ptr<TDSRows> rows;
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
@@ -82,12 +84,12 @@ namespace banana {
     string script;
     int ncols;
     int row_code;
-    LOGINREC *login;
-    DBPROCESS *dbproc;
+    LOGINREC *login = NULL;
+    DBPROCESS *dbproc = NULL;
     RETCODE erc;
 
   };
-
+  
 };
 
 //static MDB_env *lmdb_env;

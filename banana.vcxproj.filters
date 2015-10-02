@@ -33,18 +33,12 @@
     <ClCompile Include="tdsclient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FreeTDSHelper.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="banana.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="lmdb-client.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FreeTDSHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

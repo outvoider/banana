@@ -22,7 +22,7 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
     }
     
     dbclose(dbproc);
-    dbexit();
+    //dbexit();
 
     return(INT_CANCEL);
   }
@@ -52,9 +52,9 @@ int msg_handler(DBPROCESS* dbproc, DBINT msgno, int msgstate, int severity, char
 
 banana::TDSClient::~TDSClient() {
   //dbexit();
-  for (auto&e : buffers){
-    free(e);
-  }
+  //for (auto&e : buffers){
+  //  free(e);
+  //}
 }
 
 int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
@@ -65,25 +65,20 @@ int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
 };
 
 int banana::TDSClient::init() {
+  
   if (dbinit() == FAIL) {
     spdlog::get("logger")->error() << "dbinit() failed";
     return 1;
   }
 
-  /*
-    initialize shared ptrs
-  */
-  //fieldNamesPtr = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
-  //fieldValuesPtr = make_shared<vector<shared_ptr<vector<shared_ptr<string>>>>>();
-
-  rows = make_unique<banana::TDSRows>();
+  this->rows = make_unique<banana::TDSRows>();
 
   return 0;
 };
 
 int banana::TDSClient::connect() {
 
-  int rc = init();
+  int rc = this->init();
 
   if (rc){
     return rc;
@@ -93,7 +88,7 @@ int banana::TDSClient::connect() {
   dberrhandle(err_handler);
   //dbmsghandle(msg_handler);
 
-  // Get a LOGINREC.
+  // Get a LOGINREC for logging in
   if ((login = dblogin()) == NULL) {
     spdlog::get("logger")->error() << "connect() unable to allocate login structure";
     return 1;
@@ -101,9 +96,15 @@ int banana::TDSClient::connect() {
 
   DBSETLUSER(login, user.c_str());
   DBSETLPWD(login, pass.c_str());
+  DBSETLAPP(login, "banana");
+
+  this->dbproc = dbopen(login, host.c_str());
+
+  // Frees the login record, can be called immediately after dbopen.
+  dbloginfree(login);
 
   // Connect to server
-  if ((dbproc = dbopen(login, host.c_str())) == NULL) {
+  if (this->dbproc == NULL) {
     spdlog::get("logger")->error() << "connect() unable to connect to " << host;
     return 1;
   }
@@ -114,6 +115,8 @@ int banana::TDSClient::connect() {
 int banana::TDSClient::useDatabase(string& db){
   if ((erc = dbuse(dbproc, db.c_str())) == FAIL) {
     spdlog::get("logger")->error() << "useDatabase() unable to use database " << db;
+    
+    this->close();
     return 1;
   }
   return 0;
@@ -126,19 +129,20 @@ void banana::TDSClient::sql(string& _script){
 
 int banana::TDSClient::getMetadata() {
   
+  rows->fieldNames->clear();
+
   ncols = dbnumcols(dbproc);
   
-  /*
   if ((columns = (COL*)calloc(ncols, sizeof(struct COL))) == NULL) {
     perror(NULL);
     return 1;
   }
-  */
-
+  
   /*
   * Read metadata and bind.
   */
   
+  /*
   for (int c = 0; c < ncols; c++) {
     char* p = (char*)malloc(265);
     memset(p, 0, 256);
@@ -148,43 +152,47 @@ int banana::TDSClient::getMetadata() {
   for (int c = 0; c < ncols; c++) {
     nullbind.push_back(1);
   }
+  */
 
-  //for (pcol = columns; pcol - columns < ncols; pcol++) {
-  for (int c = 0; c < ncols; c++) {
+  for (pcol = columns; pcol - columns < ncols; pcol++) {
+  //for (int c = 0; c < ncols; c++) {
 
-    //int c = pcol - columns + 1;
+    int c = pcol - columns + 1;
 
-    //pcol->name = dbcolname(dbproc, c);
-    //pcol->type = dbcoltype(dbproc, c);
-    //pcol->size = dbcollen(dbproc, c);
-    char* colname = dbcolname(dbproc, c+1);
-    int coltype = dbcoltype(dbproc, c+1);
-    int colsize = 255; // dbcollen(dbproc, c + 1);
-    int status;
+    pcol->name = dbcolname(dbproc, c);
+    pcol->type = dbcoltype(dbproc, c);
+    pcol->size = dbcollen(dbproc, c);
+    
+    //char* colname = dbcolname(dbproc, c+1);
+    //int coltype = dbcoltype(dbproc, c+1);
+    //int colsize = 255; // dbcollen(dbproc, c + 1);
+    //int status;
+    
     //if (SYBCHAR != pcol->type) {
     //  pcol->size = dbprcollen(dbproc, c);
     //  if (pcol->size > 255)
     //    pcol->size = 255;
     //}
 
-    //auto col = make_shared<TDSCell<string>>(pcol->name);
-    auto col = make_shared<TDSCell<string>>(colname);
+    auto col = make_shared<TDSCell<string>>(pcol->name);
+    //auto col = make_shared<TDSCell<string>>(colname);
+    
     rows->fieldNames->push_back(col);
 
-    //if ((pcol->buffer = (char*)calloc(1, pcol->size + 1)) == NULL){
-    //  perror(NULL);
-    //  return 1;
-    //}
+    if ((pcol->buffer = (char*)calloc(1, pcol->size + 1)) == NULL){
+      perror(NULL);
+      return 1;
+    }
 
-    //erc = dbbind(dbproc, c, NTBSTRINGBIND, pcol->size + 1, (BYTE*)pcol->buffer);
-    erc = dbbind(dbproc, c+1, NTBSTRINGBIND, colsize + 1, (BYTE*)buffers.at(c));
+    erc = dbbind(dbproc, c, NTBSTRINGBIND, pcol->size + 1, (BYTE*)pcol->buffer);
+    //erc = dbbind(dbproc, c+1, NTBSTRINGBIND, colsize + 1, (BYTE*)buffers.at(c));
     if (erc == FAIL) {
       spdlog::get("logger")->error() << "dbbind " << c << " failed";
       return 1;
     }
 
-    //erc = dbnullbind(dbproc, c, &pcol->status);
-    erc = dbnullbind(dbproc, c+1, &nullbind.at(c));
+    erc = dbnullbind(dbproc, c, &pcol->status);
+    //erc = dbnullbind(dbproc, c+1, &nullbind.at(c));
     if (erc == FAIL) {
       spdlog::get("logger")->error() << "dbnullbind " << c << " failed";
       return 1;
@@ -196,22 +204,22 @@ int banana::TDSClient::getMetadata() {
 
 int banana::TDSClient::fetchData() {
   
+  rows->fieldValues->clear();
+
   while ((row_code = dbnextrow(dbproc)) != NO_MORE_ROWS){
 
-    //vector<shared_ptr<string>> row;
-    //auto row = make_shared<vector<shared_ptr<string>>>();
     int cidx = 0;
 
     auto row = make_shared<banana::RowOfString>();
 
     switch (row_code) {
     case REG_ROW:
-      cidx = 0;
-      //for (pcol = columns; pcol - columns < ncols; pcol++) {
-      for (auto& e : *rows->fieldNames){
-        //char *buffer = pcol->status == -1 ? "NULL" : pcol->buffer;
+      //cidx = 0;
+      for (pcol = columns; pcol - columns < ncols; pcol++) {
+      //for (auto& e : *rows->fieldNames){
+        char *buffer = pcol->status == -1 ? "NULL" : pcol->buffer;
         //printf("%*s ", pcol->size, buffer);
-        char* buffer = (nullbind.at(cidx) == -1 ? "NULL" : buffers.at(cidx));
+        //char* buffer = (nullbind.at(cidx) == -1 ? "NULL" : buffers.at(cidx));
         auto v = make_shared<banana::TDSCell<string>>(buffer);
         row->push_back(v);
         cidx++;
@@ -235,12 +243,12 @@ int banana::TDSClient::fetchData() {
 
   }
 
-  /* free metadata and data buffers */
-  //for (pcol = columns; pcol - columns < ncols; pcol++) {
-  //  free(pcol->buffer);
-  //}
-  //free(columns);
-
+  /* free metadata and data buffers */  
+  for (pcol = columns; pcol - columns < ncols; pcol++) {
+    free(pcol->buffer);
+  }
+  free(columns);
+  
   /*
   * Get row count, if available.
     if (DBCOUNT(dbproc) > -1)
@@ -283,9 +291,16 @@ int banana::TDSClient::execute() {
     fetchData();
   }
   
-  dbclose(dbproc);
-  dbexit();
+  this->close();
+  //dbclose(dbproc);
+  //dbexit();
 
   return 0;
 
 };
+
+void banana::TDSClient::close() {
+  if (this->dbproc != NULL){
+    dbclose(dbproc);
+  }
+}

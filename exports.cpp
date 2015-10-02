@@ -20,7 +20,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 //#include "lmdb.h"
 #include "lmdb-client.hpp"
 
-#include "FreeTDSHelper.h"
+//#include "FreeTDSHelper.h"
 
 using namespace std;
 
@@ -62,59 +62,29 @@ namespace {
     spdlog::get("logger")->info(ss.str());
   };
     
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script, vector<shared_ptr<string>>& vs)->int {
-
-    //vector<shared_ptr<string>> vs;
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr < banana::TDSClient > {
 
     auto conn = globalConfig["connection"][channelName][::env];
-
-    FreeTDSHelper helper;
-
-    if (helper.openDB((char*)conn["host"].asString().c_str(), (char*)conn["user"].asString().c_str(), (char*)conn["pass"].asString().c_str(), (char*)conn["database"].asString().c_str()) == false){
-      return -1;
-    }
-
-    //http://blog.csdn.net/qwidget/article/details/6444829  
-    if (helper.query((char*)script.c_str()) == -1)
-    {
-      printf("%s/n", helper.getErrorMessage());
-      return -1;
-    }
-    printf("there are %d rows, %d columns/n", helper.getRowCount(), helper.getColumnCount());
-    
-    for (int i = 0; i<helper.getRowCount(); ++i)
-    {
-      ROW* r = helper.getRow(i);
-      for (int j = 0; j<helper.getColumnCount(); ++j)
-      {
-        printf("%s/t", r->getField(j));
-      }
-      printf("/n");
-    }
-    helper.releaseResultSet();  
-
-    return 0;
-
-    //
-
     int rc;
-
-    auto db = unique_ptr<banana::TDSClient>(new banana::TDSClient());
-
+    auto db = shared_ptr<banana::TDSClient>(new banana::TDSClient());
     rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
     if (rc)
-      return rc;
-    
+      return db;
     rc = db->useDatabase(conn["database"].asString());
     if (rc)
-      return rc;
-
+      return db;
+    
     db->sql(script);
 
-    rc = db->execute();
-    if (rc)
-      return rc;
+    db->execute();
+
+    return db;
+  };
     
+  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
+
+    auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+
     //do stuff
     string currentLastStartTime;
     //int fieldcount = db->fieldNames.size();
@@ -163,7 +133,7 @@ namespace {
       spdlog::get("logger")->info() << ss.str();
 
       auto sv = shared_ptr<string>(new string(ss.str()));
-      vs.push_back(sv);
+      vs->push_back(sv);
       
     }
 
@@ -177,17 +147,17 @@ namespace {
     /**
     Only update if rows returned
     **/
-    if (vs.size() > 0){
+    if (vs->size() > 0){
       string nm = topic["name"].asString();
       
       auto mdb = std::make_unique<::LMDBClient>();
       mdb->setLmdbValue(nm, currentLastStartTime);
     }
 
-    return 0;
+    return vs;
   };
   
-  auto processTopic = [](string& channelName, Json::Value& topic, vector<shared_ptr<string>>& vs)->int{
+  auto processTopic = [](string& channelName, Json::Value& topic)->shared_ptr<vector<shared_ptr<string>>>{
 
     //start timer
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -213,24 +183,32 @@ namespace {
     //do we really need to log the script itself?
     //spdlog::get("logger")->info() << script;
 
-    auto rc = executeScript(channelName, topic, script, vs);
+    /*
+      execute script, will get instance of tds wrapper
+    */
+    auto db = executeScript(channelName, topic, script);
 
+    /*
+      process the results with tds wrapper, get pointer to processed results
+    */
+    auto vs = processSqlResults(channelName, topic, db);
+
+    /*
+      log work
+    */
     stringstream ss;
-    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs.size() << " Elapsed = > ";
-    //timer("Topic => " + topic["name"].asString() + " completed.  Elapsed => ", t1);
+    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
     string msg = ss.str();
     timer(msg, t1);
 
-    scriptss.str("");
-
-    return 0;
+    return vs;
   };
 
-  auto bulkToElastic = [](vector<shared_ptr<string>>& v)->int{
+  auto bulkToElastic = [](shared_ptr<vector<shared_ptr<string>>>& v)->int{
 
     stringstream ss;
     
-    for (auto& s : v){
+    for (auto& s : *v){
       ss << *s;
     }
     
@@ -246,9 +224,7 @@ namespace {
     auto r = bulkClient.request("POST", "/_bulk", ss);
     stringstream o;
     o << r->content.rdbuf();
-
-    //debug detail, else no need
-    
+        
     Json::Value jv;
     o >> jv;
     if (!jv["error"].isNull()){
@@ -257,31 +233,30 @@ namespace {
     //spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
     
     ss.str("");
-    ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
+    ss << "Bulk to ES completed.  Total => " << v->size() << " Elapsed =>";
     string msg = ss.str();
     timer(msg, t1);
 
     return 0;
   };
 
-  auto processChannel = [](unique_ptr<banana::channel>& channel_ptr)->int{
+  auto processChannel = [](banana::channel& channel_ptr)->int{
   
-    vector<shared_ptr<string>> combined;
+    auto combined = make_shared<vector<shared_ptr<string>>>();
 
-    auto pr = *channel_ptr;
+    auto pr = channel_ptr;
     auto channel = pr.topics;
     
     for (int index = 0; index < channel.size(); ++index){      
-      vector<shared_ptr<string>> vs;
-      processTopic(pr.name, channel[index], vs);
-      combined.insert(combined.end(), vs.begin(), vs.end());
-      //vs.clear();
+      auto vs = processTopic(pr.name, channel[index]);
+      combined->insert(combined->end(), vs->begin(), vs->end());
+      vs.reset();
     }
 
     //When all is done, bulkload to elasticsearch
-    if (combined.size() > 0){
+    if (combined->size() > 0){
       bulkToElastic(combined);
-      //combined.clear();
+      combined.reset();
     }
     
     return 0;
@@ -289,25 +264,8 @@ namespace {
 
   auto start = []()->int{
 
-    auto channels = globalConfig["channels"];
-
-    vector<unique_ptr<banana::channel>> v;
-    
-    vector<string> names;
-    for (auto const& id : channels.getMemberNames()) {
-      names.push_back(id);
-    }
-
-    for (auto i = 0; i < channels.size(); i++) {
-      auto channel = channels[names[i]];
-      string channelName = names[i];
-      
-      v.push_back(unique_ptr<banana::channel>(new banana::channel(channelName, channel)));
-    }
-
     //parallel_for_each(v.begin(), v.end(), processChannel);
-    std::for_each(v.begin(), v.end(), processChannel);
-    
+    std::for_each(banana::channels.begin(), banana::channels.end(), processChannel);    
     //v.clear();
 
     return 0;

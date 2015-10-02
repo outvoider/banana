@@ -90,27 +90,33 @@ int main(int argc, char *argv[]) {
   _CrtMemState s1;
 #endif
 
+  auto initChannels = []()->void {
+
+    auto channels = globalConfig["channels"];
+
+    vector<string> names;
+    for (auto const& id : channels.getMemberNames()) {
+      names.push_back(id);
+    }
+
+    for (auto i = 0; i < channels.size(); i++) {
+      auto channelObj = channels[names[i]];
+      string channelName = names[i];
+      //v.push_back(unique_ptr<banana::channel>(new banana::channel(channelName, channel)));
+      auto channel = banana::channel(channelName, channelObj);
+      banana::channels.push_back(channel);
+      
+    }
+
+  };
+
+  initChannels();
+
   //spin foreveer
   while (1){
+    
     start();
 
-    /*
-    auto mdb = std::make_unique<::LMDBClient>();
-    string k = "test";
-    string v = "val";
-    mdb->setLmdbValue(k, v);
-    */
-
-    /*
-    auto conn = globalConfig["connection"]["animalcensus"][::env];
-    int rc;
-    auto db = unique_ptr<banana::TDSClient>(new banana::TDSClient());
-    rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
-    rc = db->useDatabase(conn["database"].asString());
-    string script = "select currenttimestamp";
-    db->sql(script);
-    rc = db->execute();
-    */
 
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     spdlog::get("logger")->flush();
