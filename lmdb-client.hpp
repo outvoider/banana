@@ -131,7 +131,7 @@ namespace {
       //rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0777);
       if (rc != 0){
         char* c = mdb_strerror(rc);
-        cout << c << endl;
+        //std::cout << c << endl;
         spdlog::get("logger")->error() << "Failed to create lmdb.  Returned => " << rc;
         spdlog::get("logger")->flush();
         mdb_env_close(lmdb_env);

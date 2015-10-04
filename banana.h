@@ -4,9 +4,30 @@
 #include <iostream>
 #include <memory>
 #include <json/json.h>
-//#include "lmdb.h"
 #include <sybfront.h>	/* sybfront.h always comes first */
 #include <sybdb.h>	/* sybdb.h is the only other file you need */
+
+//#include <iostream>
+#include <fstream>
+//#include <json/json.h>
+//#include "banana.h"
+
+#include <ctpublic.h>
+//#include <memory>
+#include <regex>
+#include "spdlog/spdlog.h"
+
+#include <boost/uuid/uuid.hpp>            // uuid class
+#include <boost/uuid/uuid_generators.hpp> // generators
+#include <boost/uuid/uuid_io.hpp>         // streaming operators etc.
+
+#include "semaphore.hpp"
+
+#include "client_http.hpp"
+typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
+
+//#include "lmdb.h"
+#include "lmdb-client.hpp"
 
 using namespace std;
 
@@ -14,6 +35,44 @@ static Json::Value globalConfig;
 static string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
 static unsigned int sleep_ms = 5000;
 static string env = "dev";
+
+namespace {
+  auto loadConfigFile = []()->int{
+
+    Json::Reader reader;
+    ifstream ifs("config.json");
+
+    if (ifs.is_open()){
+      istream& s = ifs;
+      bool parsingSuccessful = reader.parse(s, globalConfig);
+      if (!parsingSuccessful){
+        spdlog::get("logger")->error() << "Failed to parse configuration\n"
+          << reader.getFormattedErrorMessages();
+        return 1;
+      }
+    }
+    else {
+      spdlog::get("logger")->error() << "config.json cannot be found";
+      return 1;
+    }
+    ifs.close();
+
+    return 0;
+
+  };
+
+  auto timer = [](string& message, std::chrono::time_point<std::chrono::system_clock>& t1){
+
+    stringstream ss;
+    auto t2 = std::chrono::high_resolution_clock::now();
+    ss.str("");
+    ss << message << " "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+      << " milliseconds\n";
+
+    spdlog::get("logger")->info(ss.str());
+  };
+}
 
 namespace banana {
   class channel {
@@ -90,9 +149,19 @@ namespace banana {
 
   };
   
-};
+  struct man {
+    vector<banana::channel> channels;
+    man(vector<banana::channel>& _channels):channels(_channels){}
+    //void timer(string& message, std::chrono::time_point<std::chrono::system_clock>& t1);
+    shared_ptr<vector<shared_ptr<string>>> processSqlResults(const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db);
+    shared_ptr<banana::TDSClient> executeScript(const string channelName, const Json::Value& topic, string& script);
+    shared_ptr<vector<shared_ptr<string>>> processTopic(string& channelName, Json::Value& topic);
+    int bulkToElastic(shared_ptr<vector<shared_ptr<string>>>& v);
+    int processChannel(banana::channel& channel_ptr);
+    int start();
 
-//static MDB_env *lmdb_env;
-//static MDB_dbi lmdb_dbi;
+  };
+
+};
 
 #endif

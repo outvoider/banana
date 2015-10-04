@@ -15,7 +15,7 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
       spdlog::get("logger")->error() << "Operating-system error: " << oserrstr;
     }
     
-    dbclose(dbproc);
+    //dbclose(dbproc);
     //dbexit();
 
     return(INT_CANCEL);
@@ -285,5 +285,7 @@ int banana::TDSClient::execute() {
 void banana::TDSClient::close() {
   if (this->dbproc != NULL){
     dbclose(dbproc);
+    this->dbproc = NULL;
   }
+  dbexit();
 }
