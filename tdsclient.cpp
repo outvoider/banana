@@ -1,6 +1,10 @@
 #include "banana.h"
 #include "spdlog/spdlog.h"
 
+/*
+  ref: http://lists.ibiblio.org/pipermail/freetds/2004q3/016451.html
+
+*/
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {
     spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
@@ -30,17 +34,22 @@ int msg_handler(DBPROCESS* dbproc, DBINT msgno, int msgstate, int severity, char
   if (msgno == 5701 || msgno == 5703)
     return(0);
   
-  printf("Msg %d, Level %d, State %d\n", msgno, severity, msgstate);
+  //printf("Msg %d, Level %d, State %d\n", msgno, severity, msgstate);
+  spdlog::get("logger")->warn() << "msgno " << msgno << " severity " << severity << " msgstate " << msgstate;
 
   if (strlen(srvname) > 0)
-    printf("Server '%s', ", srvname);
+    spdlog::get("logger")->warn() << "Server => " << srvname;
+  //printf("Server '%s', ", srvname);
   if (strlen(procname) > 0)
-    printf("Procedure '%s', ", procname);
+    spdlog::get("logger")->warn() << "Procedure => " << procname;
+  //printf("Procedure '%s', ", procname);
   if (line > 0)
-    printf("Line %d", line);
+    spdlog::get("logger")->warn() << "line => " << line;
+    //printf("Line %d", line);
 
-  printf("\n\t%s\n", msgtext);
-  
+  //printf("\n\t%s\n", msgtext);
+  spdlog::get("logger")->warn() << "msgtext => " << msgtext;
+
   return(0);
 }
 
@@ -77,7 +86,7 @@ int banana::TDSClient::connect() {
 
   //handle server/network errors
   dberrhandle(err_handler);
-  //dbmsghandle(msg_handler);
+  dbmsghandle(msg_handler);
 
   // Get a LOGINREC for logging in
   if ((login = dblogin()) == NULL) {
@@ -110,6 +119,7 @@ int banana::TDSClient::useDatabase(string& db){
     this->close();
     return 1;
   }
+  spdlog::get("logger")->error() << "useDatabase() => " << db;
   return 0;
 };
 
@@ -255,11 +265,11 @@ int banana::TDSClient::execute() {
     spdlog::get("logger")->error() << "execute() dbsqlexec failed";
     return 1;
   }
-
+  
   while ((erc = dbresults(dbproc)) != NO_MORE_RESULTS) {
 
     if (erc == FAIL) {
-      spdlog::get("logger")->error() << "execute() no results";
+      spdlog::get("logger")->info() << "execute() no results";
       return 1;
     }
 

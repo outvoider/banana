@@ -374,7 +374,7 @@ shared_ptr<vector<shared_ptr<string>>> banana::man::processSqlResults(const stri
 
 shared_ptr<banana::TDSClient> banana::man::executeScript(const string channelName, const Json::Value& topic, string& script){
   
-  auto conn = this->globalConfig["connection"][channelName][::env];
+  auto conn = this->globalConfig["connection"][channelName][this->env];
   int rc;
   auto db = shared_ptr<banana::TDSClient>(new banana::TDSClient());
   rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
@@ -413,8 +413,7 @@ shared_ptr<vector<shared_ptr<string>>> banana::man::processTopic(string& channel
   script = scriptss.str();
   script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
 
-  //do we really need to log the script itself?
-  //spdlog::get("logger")->info() << script;
+  spdlog::get("logger")->info() << "Processing " << channelName << " | " << topic["name"];
 
   /*
   execute script, will get instance of tds wrapper
@@ -444,8 +443,8 @@ int banana::man::bulkToElastic(shared_ptr<vector<shared_ptr<string>>>& v){
     ss << *s;
   }
 
-  auto esHost = this->globalConfig["es"][::env]["host"].asString();
-  auto esPort = this->globalConfig["es"][::env]["port"].asString();
+  auto esHost = this->globalConfig["es"][this->env]["host"].asString();
+  auto esPort = this->globalConfig["es"][this->env]["port"].asString();
 
   //start timer
   auto t1 = std::chrono::high_resolution_clock::now();

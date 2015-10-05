@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
 
   initChannels();
 
-  banana::man m(globalConfig, banana::channels);
+  banana::man m(globalConfig, banana::channels, ::env);
 
   //spin foreveer
   while (1){

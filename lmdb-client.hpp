@@ -44,7 +44,7 @@ namespace {
       rc = mdb_put(txn, lmdb_dbi, &key, &data, 0);
 
       if (rc != 0){
-        spdlog::get("logger")->error() << "Error occurred mdb_put() => " << rc;
+        spdlog::get("logger")->error() << "Error occurred mdb_put() key => " << k << " value " << v << " rc => " << rc;
         mdb_txn_abort(txn);
         return rc;
       }
@@ -76,7 +76,7 @@ namespace {
 
       rc = mdb_get(txn, lmdb_dbi, &key, &data);
       if (rc != 0){
-        spdlog::get("logger")->error() << "Error occurred mdb_get() => " << rc;
+        spdlog::get("logger")->error() << "Error occurred mdb_get() key => " << k << " rc => " << rc;
         mdb_txn_abort(txn);
         return "";
       }
