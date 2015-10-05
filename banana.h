@@ -150,8 +150,9 @@ namespace banana {
   };
   
   struct man {
+    Json::Value globalConfig;
     vector<banana::channel> channels;
-    man(vector<banana::channel>& _channels):channels(_channels){}
+    man(Json::Value& _globalConfig, vector<banana::channel>& _channels) :globalConfig(_globalConfig), channels(_channels){}
     //void timer(string& message, std::chrono::time_point<std::chrono::system_clock>& t1);
     shared_ptr<vector<shared_ptr<string>>> processSqlResults(const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db);
     shared_ptr<banana::TDSClient> executeScript(const string channelName, const Json::Value& topic, string& script);

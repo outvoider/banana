@@ -15,8 +15,8 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
       spdlog::get("logger")->error() << "Operating-system error: " << oserrstr;
     }
     
-    //dbclose(dbproc);
-    //dbexit();
+    dbclose(dbproc);
+    dbexit();
 
     return(INT_CANCEL);
   }
