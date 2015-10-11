@@ -1,7 +1,7 @@
 #include <iostream>
 //#include <fstream>
 //#include <json/json.h>
-#include "banana.h"
+#include "banana.hpp"
 
 //#include <ctpublic.h>
 //#include <memory>
@@ -22,6 +22,7 @@
 using namespace std;
 
 namespace {
+  
   /*
   auto loadConfigFile = []()->int{
 
@@ -46,7 +47,7 @@ namespace {
     return 0;
 
   };
-
+  
   auto timer = [](string& message, std::chrono::time_point<std::chrono::system_clock>& t1){
 
     stringstream ss;
@@ -58,214 +59,9 @@ namespace {
 
     spdlog::get("logger")->info(ss.str());
   };
+  
   */
-  /*
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr < banana::TDSClient > {
-
-  auto conn = globalConfig["connection"][channelName][::env];
-  int rc;
-  auto db = shared_ptr<banana::TDSClient>(new banana::TDSClient());
-  rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
-  if (rc)
-  return db;
-  rc = db->useDatabase(conn["database"].asString());
-  if (rc)
-  return db;
-
-  db->sql(script);
-
-  db->execute();
-
-  return db;
-  };
-
-  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
-
-  auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
-
-  //do stuff
-  string currentLastStartTime;
-  int fieldcount = db->rows->fieldNames->size();
-
-  for (auto& row : *(db->rows->fieldValues)){
-
-  Json::Value meta;
-  Json::Value body;
-  stringstream ss;
-
-  boost::uuids::uuid uuid = boost::uuids::random_generator()();
-
-  meta["index"]["_index"] = "cdc";
-  meta["index"]["_type"] = topic["name"].asString();
-  meta["index"]["_id"] = boost::uuids::to_string(uuid);
-
-  for (int i = 0; i < fieldcount; i++){
-  auto n = db.get()->rows->fieldNames->at(i)->value;
-  body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
-  }
-  body["processed"] = 0;
-  body["channel"] = channelName;
-
-  //
-  //  which module(s) should this record be replicated to?
-  //
-  if (topic["targetStores"].isArray()){
-  body["targetStores"] = topic["targetStores"];
-  }
-  body["modelName"] = topic["modelName"].asString();
-
-  //Update the start time
-  currentLastStartTime = body["start_time"].asString();
-
-  //.write will tack on a \n after completion
-  Json::FastWriter writer;
-  auto compactMeta = writer.write(meta);
-  auto compactBody = writer.write(body);
-
-  ss << compactMeta << compactBody;
-
-  spdlog::get("logger")->info() << ss.str();
-
-  auto sv = shared_ptr<string>(new string(ss.str()));
-  vs->push_back(sv);
-
-  }
-
-  //
-  //stringstream ss1;
-  //ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
-  //spdlog::get("logger")->info() << ss1.str();
-  //
-
-  //Store this in lmdb
-  //
-  //Only update if rows returned
-  //
-  if (vs->size() > 0){
-  string nm = topic["name"].asString();
-
-  auto mdb = std::make_unique<::LMDBClient>();
-  mdb->setLmdbValue(nm, currentLastStartTime);
-  }
-
-  return vs;
-  };
-
-  auto processTopic = [](string& channelName, Json::Value& topic)->shared_ptr<vector<shared_ptr<string>>>{
-
-  //start timer
-  auto t1 = std::chrono::high_resolution_clock::now();
-
-  stringstream scriptss;
-  string script;
-
-  auto scriptArr = topic["script"];
-  for (auto& e : scriptArr){
-  scriptss << e.asString();
-  }
-
-  //Fetch from lmdb store
-  string nm = topic["name"].asString();
-
-  auto mdb = std::make_unique<::LMDBClient>();
-  string storedLastStartTime = mdb->getLmdbValue(nm);
-
-  std::regex e("\\$\\(LAST_EXEC_TIME\\)");
-  script = scriptss.str();
-  script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
-
-  //do we really need to log the script itself?
-  //spdlog::get("logger")->info() << script;
-
-  //
-  //  execute script, will get instance of tds wrapper
-  //
-  auto db = executeScript(channelName, topic, script);
-
-  //
-  //  process the results with tds wrapper, get pointer to processed results
-  //
-  auto vs = processSqlResults(channelName, topic, db);
-
-  //
-  //  log work
-  //
-  stringstream ss;
-  ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
-  string msg = ss.str();
-  timer(msg, t1);
-
-  return vs;
-  };
-
-  auto bulkToElastic = [](shared_ptr<vector<shared_ptr<string>>>& v)->int{
-
-  stringstream ss;
-
-  for (auto& s : *v){
-  ss << *s;
-  }
-
-  auto esHost = globalConfig["es"][::env]["host"].asString();
-  auto esPort = globalConfig["es"][::env]["port"].asString();
-
-  //start timer
-  auto t1 = std::chrono::high_resolution_clock::now();
-
-  HttpClient bulkClient(esHost + ":" + esPort);
-  //std::map<string, string> header;
-  //header["Content-Type"] = "application/json";
-  auto r = bulkClient.request("POST", "/_bulk", ss);
-  stringstream o;
-  o << r->content.rdbuf();
-
-  Json::Value jv;
-  o >> jv;
-  if (!jv["error"].isNull()){
-  spdlog::get("logger")->info() << o.str();
-  }
-  //spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
-
-  ss.str("");
-  ss << "Bulk to ES completed.  Total => " << v->size() << " Elapsed =>";
-  string msg = ss.str();
-  timer(msg, t1);
-
-  return 0;
-  };
-
-  auto processChannel = [](banana::channel& channel_ptr)->int{
-
-  auto combined = make_shared<vector<shared_ptr<string>>>();
-
-  auto pr = channel_ptr;
-  auto channel = pr.topics;
-
-  for (int index = 0; index < channel.size(); ++index){
-  auto vs = processTopic(pr.name, channel[index]);
-  combined->insert(combined->end(), vs->begin(), vs->end());
-  //vs.reset();
-  }
-
-  //When all is done, bulkload to elasticsearch
-  if (combined->size() > 0){
-  bulkToElastic(combined);
-  //combined.reset();
-  }
-
-  return 0;
-  };
-
-  auto start = []()->int{
-
-  //parallel_for_each(v.begin(), v.end(), processChannel);
-  std::for_each(banana::channels.begin(), banana::channels.end(), processChannel);
-
-  return 0;
-  };
-
-  */
-
+  
 }; // le fin anon namespace
 
 /*
@@ -301,6 +97,8 @@ ss << message << " "
 spdlog::get("logger")->info(ss.str());
 }
 */
+
+/*
 shared_ptr<vector<shared_ptr<string>>> banana::man::processSqlResults(const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db){
   auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
 
@@ -327,9 +125,7 @@ shared_ptr<vector<shared_ptr<string>>> banana::man::processSqlResults(const stri
     body["processed"] = 0;
     body["channel"] = channelName;
 
-    /**
-    which module(s) should this record be replicated to?
-    **/
+    //which module(s) should this record be replicated to?
     if (topic["targetStores"].isArray()){
       body["targetStores"] = topic["targetStores"];
     }
@@ -352,16 +148,6 @@ shared_ptr<vector<shared_ptr<string>>> banana::man::processSqlResults(const stri
 
   }
 
-  /*
-  stringstream ss1;
-  ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
-  spdlog::get("logger")->info() << ss1.str();
-  */
-
-  //Store this in lmdb
-  /**
-  Only update if rows returned
-  **/
   if (vs->size() > 0){
     string nm = topic["name"].asString();
 
@@ -415,19 +201,35 @@ shared_ptr<vector<shared_ptr<string>>> banana::man::processTopic(string& channel
 
   spdlog::get("logger")->info() << "Processing " << channelName << " | " << topic["name"];
 
-  /*
-  execute script, will get instance of tds wrapper
-  */
+  //execute script, will get instance of tds wrapper
   auto db = executeScript(channelName, topic, script);
 
-  /*
-  process the results with tds wrapper, get pointer to processed results
-  */
+  
+  //process the results with tds wrapper, get pointer to processed results
   auto vs = processSqlResults(channelName, topic, db);
 
-  /*
-  log work
-  */
+#ifdef _DEBUG
+  _CrtMemState s1;
+#endif
+
+  //call destructor
+  
+#ifdef _DEBUG
+  _CrtMemCheckpoint(&s1);
+  _CrtMemDumpStatistics(&s1);
+  //_CrtDumpMemoryLeaks();
+#endif
+  
+  db.reset();
+
+#ifdef _DEBUG
+  _CrtMemCheckpoint(&s1);
+  _CrtMemDumpStatistics(&s1);
+  //_CrtDumpMemoryLeaks();
+#endif
+
+  //log work
+  
   stringstream ss;
   ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
   string msg = ss.str();
@@ -493,9 +295,14 @@ int banana::man::processChannel(banana::channel& channel_ptr) {
 }
 
 int banana::man::start(){
-  //std::for_each(banana::channels.begin(), banana::channels.end(), processChannel);
-  for (auto& e : this->channels){
-    this->processChannel(e);
-  }
-  return 0;
+//std::for_each(banana::channels.begin(), banana::channels.end(), processChannel);
+//parallel_for_each(banana::channels.begin(), banana::channels.end(), ::processChannel);
+
+for (auto& e : this->channels){
+this->processChannel(e);
 }
+
+return 0;
+}
+*/
+

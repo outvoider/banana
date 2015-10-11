@@ -4,7 +4,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#include "banana.h"
+#include "banana.hpp"
 #include "test.cpp"
 
 #ifdef _DEBUG
@@ -108,14 +108,14 @@ int main(int argc, char *argv[]) {
 
   initChannels();
 
-  banana::man m(globalConfig, banana::channels, ::env);
+  //banana::man m(globalConfig, banana::channels, ::env);
 
   //spin foreveer
   while (1){
     
-    //start();
+    ::start();
 
-    m.start();
+    //m.start();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     spdlog::get("logger")->flush();

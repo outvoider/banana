@@ -1,5 +1,5 @@
 #include <iostream>
-#include "banana.h"
+#include "banana.hpp"
 #include "client_http.hpp"
 
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;

@@ -242,10 +242,10 @@
           "SET @to_lsn = sys.fn_cdc_map_time_to_lsn('largest less than or equal', @end_time);\n",
           "-- Return the net changes occurring within the query window.\n",
           "select GRAI, BarCode, Zone, ProcessStatus, LastScanDateTime, CheckIn, CheckOut, start_time from (\n",
-          "select y.GRAI, y.BarCode, y.Zone, y.ProcessStatus, case when y.LastScanDateTime is not null then left(convert(varchar(24), y.LastScanDateTime, 126), 19) else '' end LastScanDateTime, case when y.CheckIn is not null then left(convert(varchar(24), y.CheckIn ,126), 19) else '' end CheckIn, case when y.CheckOut is not null then left(convert(varchar(24), y.CheckOut, 126), 19) else '' end CheckOut, left(convert(varchar(24), y.start_time, 126), 19) start_time from ( select a.grai, a.barcode, max(sys.fn_cdc_map_lsn_to_time ( __$start_lsn )) max_start_time FROM cdc.fn_cdc_get_all_changes_dbo_Assets(@from_lsn, @to_lsn, 'all') a group by a.grai, a.barcode ) z \n",
+          "select y.GRAI, y.BarCode, y.Zone, y.ProcessStatus, case when y.LastScanDateTime is not null then convert(varchar(20), y.LastScanDateTime, 101) else '' end LastScanDateTime, case when y.CheckIn is not null then left(convert(varchar(24), y.CheckIn ,126), 19) else '' end CheckIn, case when y.CheckOut is not null then left(convert(varchar(24), y.CheckOut, 126), 19) else '' end CheckOut, left(convert(varchar(24), y.start_time, 126), 19) start_time from ( select a.grai, a.barcode, a.__$operation, max(sys.fn_cdc_map_lsn_to_time ( __$start_lsn )) max_start_time FROM cdc.fn_cdc_get_all_changes_dbo_Assets(@from_lsn, @to_lsn, 'all') a where a.__$operation = 4 group by a.grai, a.barcode, a.__$operation ) z \n",
           "inner join\n",
           "( select sys.fn_cdc_map_lsn_to_time ( __$start_lsn ) start_time, a.__$start_lsn, a.__$seqval, a.__$operation, a.__$update_mask, a.GRAI, a.Barcode BarCode, rt.Barcode Zone, a.ProcessStatus, a.ModifiedOn LastScanDateTime, a.CheckIn, a.CheckOut FROM cdc.fn_cdc_get_all_changes_dbo_Assets(@from_lsn, @to_lsn, 'all') a inner join AnimalCensus..Routing rt on a.location = rt.Id where a.processstatus is not null) y \n",
-          "on z.grai = y.grai and z.barcode = y.barcode and z.max_start_time = y.start_time\n",
+          "on z.grai = y.grai and z.barcode = y.barcode and z.__$operation = y.__$operation and z.max_start_time = y.start_time\n",
           ") x\n",
           "group by GRAI, BarCode, Zone, ProcessStatus, LastScanDateTime, CheckIn, CheckOut, start_time\n",
           "order by x.start_time;"

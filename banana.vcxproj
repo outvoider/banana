@@ -156,7 +156,7 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
     <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="banana.h" />
+    <ClInclude Include="banana.hpp" />
     <ClInclude Include="lmdb-client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
