@@ -158,6 +158,8 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
   <ItemGroup>
     <ClInclude Include="banana.hpp" />
     <ClInclude Include="lmdb-client.hpp" />
+    <ClInclude Include="tds-client-api.hpp" />
+    <ClInclude Include="tds-client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

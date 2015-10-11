@@ -41,5 +41,11 @@
     <ClInclude Include="banana.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tds-client.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tds-client-api.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

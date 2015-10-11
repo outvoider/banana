@@ -29,6 +29,8 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 //#include "lmdb.h"
 #include "lmdb-client.hpp"
 
+#include "tds-client-api.hpp"
+
 using namespace std;
 
 static Json::Value globalConfig;
@@ -132,6 +134,16 @@ namespace banana {
   no namespace
 */
 namespace {
+
+  auto tdsClientApiInvoke = [](std::string& channelName, Json::Value& topic, std::string& script)->int{
+
+    auto conn = globalConfig["connection"][channelName][::env];
+    int rc;
+    std::vector<std::string> queries = { script };
+    rc = ::tdsClientExecute(conn["host"].asString(), conn["database"].asString(), conn["user"].asString(), conn["pass"].asString(), queries);
+
+    return 0;
+  };
 
   auto loadConfigFile = []()->int{
 
@@ -284,18 +296,22 @@ namespace {
     script = scriptss.str();
     script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
 
+    auto rc = tdsClientApiInvoke(channelName, topic, script);
+
+    auto vs = make_shared<vector<shared_ptr<string>>>();
+
     //do we really need to log the script itself?
     //spdlog::get("logger")->info() << script;
 
     //
     //  execute script, will get instance of tds wrapper
     //
-    auto db = executeScript(channelName, topic, script);
+    //auto db = executeScript(channelName, topic, script);
 
     //
     //  process the results with tds wrapper, get pointer to processed results
     //
-    auto vs = processSqlResults(channelName, topic, db);
+    //auto vs = processSqlResults(channelName, topic, db);
 
     //destroy
     //db.reset();
