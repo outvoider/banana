@@ -29,7 +29,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 //#include "lmdb.h"
 #include "lmdb-client.hpp"
 
-#include "tds-client-api.hpp"
+#include "tdspp.hh"
 
 using namespace std;
 
@@ -77,16 +77,41 @@ namespace banana {
 
   class TDSClient{
   public:
+    /*
     struct COL
     {
       char *name;
       char *buffer;
       int type, size, status;
     } *columns, *pcol;
-    
+    */
+
+    struct COL {						/* (1) */
+      char *name;
+      int type, status;
+      size_t _size;
+      std::string buffer;
+      COL(char* name, int type, size_t size) : name(name), type(type), _size(size) {
+        // note { string s; s.resize(5); strcpy(&s[0], "123"); s.resize(strlen(s.data())); cout << s; }
+        buffer.resize(_size + 1);
+        if (::strlen(name) > size)
+          _size = ::strlen(name);
+      }
+      bool operator== (const COL& r) const {
+        return name == r.name && type == r.type && _size == r._size && status == r.status && buffer == r.buffer;
+      }
+      const char* lexical() const {
+        return buffer.data();
+      }
+      int size() const { return _size; }
+      bool isNULL() const { return status == -1; }
+    };
+    typedef std::vector<COL> Values;
+
     //vector<char*> buffers;
     //vector<int> nullbind;
-
+    Values values;
+    
     int init();
     int connect();
     int connect(string& _host, string& _user, string& _pass);
@@ -135,6 +160,7 @@ namespace banana {
 */
 namespace {
 
+  /*
   auto tdsClientApiInvoke = [](std::string& channelName, Json::Value& topic, std::string& script)->int{
 
     auto conn = globalConfig["connection"][channelName][::env];
@@ -144,6 +170,7 @@ namespace {
 
     return 0;
   };
+  */
 
   auto loadConfigFile = []()->int{
 
@@ -181,8 +208,127 @@ namespace {
     spdlog::get("logger")->info(ss.str());
   };
 
+  auto processSqlResults = [](const string channelName, const Json::Value& topic, Query* q)->shared_ptr<vector<shared_ptr<string>>> {
 
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr < banana::TDSClient > {
+    auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+
+    //do stuff
+    string currentLastStartTime;
+    //int fieldcount = db->rows->fieldNames->size();
+
+    int fieldcount = q->fieldcount;
+    
+    //vector<string> fieldNames;
+    //for (int i; i < fieldcount; i++){
+    //  fieldNames.push_back(q->fields(i)->colname);
+    //}
+
+    /* Print table headers, ie column names. */
+    /*
+    q->rows->printheader();
+    while (!q->eof()) {
+      cout << "| ";
+      for (int i = 0; i < q->fieldcount; i++)
+        cout << q->fields(i)->tostr() << " | ";
+      cout << endl;
+      q->next();
+    }
+    */
+
+    while (!q->eof()) {
+    //for (auto& row : *(db->rows->fieldValues)){
+
+      Json::Value meta;
+      Json::Value body;
+      stringstream ss;
+
+      boost::uuids::uuid uuid = boost::uuids::random_generator()();
+
+      meta["index"]["_index"] = "cdc";
+      meta["index"]["_type"] = topic["name"].asString();
+      meta["index"]["_id"] = boost::uuids::to_string(uuid);
+
+      for (int i = 0; i < fieldcount; i++){
+        //auto n = db.get()->rows->fieldNames->at(i)->value;
+        auto n = q->fields(i)->colname;
+        //body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
+        body[n] = q->fields(i)->tostr();
+      }
+      body["processed"] = 0;
+      body["channel"] = channelName;
+
+      //
+      //  which module(s) should this record be replicated to?
+      //
+      if (topic["targetStores"].isArray()){
+        body["targetStores"] = topic["targetStores"];
+      }
+      body["modelName"] = topic["modelName"].asString();
+
+      //Update the start time
+      currentLastStartTime = body["start_time"].asString();
+
+      //.write will tack on a \n after completion
+      Json::FastWriter writer;
+      auto compactMeta = writer.write(meta);
+      auto compactBody = writer.write(body);
+
+      ss << compactMeta << compactBody;
+
+      spdlog::get("logger")->info() << ss.str();
+
+      auto sv = shared_ptr<string>(new string(ss.str()));
+      vs->push_back(sv);
+
+      q->next();
+    }
+    
+    if (vs->size() > 0){
+      string nm = topic["name"].asString();
+
+      auto mdb = std::make_unique<::LMDBClient>();
+      mdb->setLmdbValue(nm, currentLastStartTime);
+    }
+
+    return vs;
+  };
+
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<vector<shared_ptr<string>>> {
+
+    shared_ptr<vector<shared_ptr<string>>> vs = nullptr;
+
+    auto conn = globalConfig["connection"][channelName][::env];
+
+    TDSPP *db = new TDSPP();
+    try {
+      /* Connect to database. */
+      db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+      /* Execute command. */
+      db->execute("use " + conn["database"].asString());
+      /* Create query. */
+      Query *q = db->sql(script);
+
+      try {
+        /* Execute SQL query. */
+        q->execute();
+        
+        vs = processSqlResults(channelName, topic, q);
+
+      }
+      catch (TDSPP::Exception &e) {
+        cerr << e.message << endl;
+      }
+      delete q;
+    }
+    catch (TDSPP::Exception &e) {
+      cerr << e.message << endl;
+    }
+    delete db;
+
+    return vs;
+  };
+
+  auto executeScript2 = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr < banana::TDSClient > {
 
     auto conn = globalConfig["connection"][channelName][::env];
     int rc;
@@ -201,7 +347,7 @@ namespace {
     return db;
   };
 
-  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
+  auto processSqlResults2 = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
 
     auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
 
@@ -296,9 +442,9 @@ namespace {
     script = scriptss.str();
     script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
 
-    auto rc = tdsClientApiInvoke(channelName, topic, script);
+    //auto rc = tdsClientApiInvoke(channelName, topic, script);
 
-    auto vs = make_shared<vector<shared_ptr<string>>>();
+    //auto vs = make_shared<vector<shared_ptr<string>>>();
 
     //do we really need to log the script itself?
     //spdlog::get("logger")->info() << script;
@@ -306,7 +452,10 @@ namespace {
     //
     //  execute script, will get instance of tds wrapper
     //
+    //
     //auto db = executeScript(channelName, topic, script);
+
+    auto vs = executeScript(channelName, topic, script);
 
     //
     //  process the results with tds wrapper, get pointer to processed results
@@ -319,15 +468,21 @@ namespace {
     //
     //  log work
     //
-    stringstream ss;
-    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
-    string msg = ss.str();
-    timer(msg, t1);
+    if (vs != nullptr){
+      stringstream ss;
+      ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
+      string msg = ss.str();
+      timer(msg, t1);
+    }    
 
     return vs;
   };
 
   auto bulkToElastic = [](shared_ptr<vector<shared_ptr<string>>>& v)->int{
+
+    if (v == nullptr){
+      return 1;
+    }
 
     stringstream ss;
 
@@ -387,7 +542,8 @@ namespace {
 
   auto start = []()->int{
 
-    parallel_for_each(banana::channels.begin(), banana::channels.end(), ::processChannel);
+    //parallel_for_each(banana::channels.begin(), banana::channels.end(), ::processChannel);
+    std::for_each(banana::channels.begin(), banana::channels.end(), ::processChannel);
     return 0;
   };
 

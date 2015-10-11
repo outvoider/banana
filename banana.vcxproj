@@ -92,8 +92,8 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Debug;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release;C:\cygwin64\home\htao\freetds\build\src\dblib\Debug;C:\cygwin64\home\htao\freetds\build\src\tds\Debug;C:\cygwin64\home\htao\freetds\build\src\replacements\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>replacements.lib;db-lib.lib;mdb.lib;jsoncpp.lib;tds.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Debug;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release;C:\cygwin64\home\htao\freetds\build\src\dblib\Debug;C:\cygwin64\home\htao\freetds\build\src\tds\Debug;C:\cygwin64\home\htao\freetds\build\src\replacements\Debug;C:\cygwin64\home\htao\tdspp\x64\Debug;C:\cygwin64\home\htao\freetds\build\src\ctlib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>replacements.lib;db-lib.lib;mdb.lib;jsoncpp.lib;tds.lib;tdspp.lib;ct.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)config.json" "$(TargetDir)config.json"
@@ -133,12 +133,13 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Release;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release;C:\cygwin64\home\htao\freetds\build\src\dblib\Release;C:\cygwin64\home\htao\freetds\build\src\tds\Release;C:\cygwin64\home\htao\freetds\build\src\replacements\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>replacements.lib;db-lib.lib;mdb.lib;jsoncpp.lib;tds.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\cygwin64\home\htao\jsoncpp\build\src\lib_json\Release;C:\local\boost_1_57_0\lib64-msvc-12.0;C:\cygwin64\home\htao\lightningdb-win\x64\Release;C:\cygwin64\home\htao\freetds\build\src\dblib\Release;C:\cygwin64\home\htao\freetds\build\src\tds\Release;C:\cygwin64\home\htao\freetds\build\src\replacements\Release;C:\cygwin64\home\htao\tdspp\x64\Release;C:\cygwin64\home\htao\freetds\build\src\ctlib\Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>replacements.lib;db-lib.lib;mdb.lib;jsoncpp.lib;tds.lib;tdspp.lib;ct.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)config.json" "$(TargetDir)config.json"
 copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir)mdb.dll
+copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Release\ct.dll" "$(TargetDir)ct.dll
 
 </Command>
     </PreBuildEvent>
@@ -158,8 +159,6 @@ copy /Y "C:\cygwin64\home\htao\lightningdb-win\x64\Release\mdb.dll" "$(TargetDir
   <ItemGroup>
     <ClInclude Include="banana.hpp" />
     <ClInclude Include="lmdb-client.hpp" />
-    <ClInclude Include="tds-client-api.hpp" />
-    <ClInclude Include="tds-client.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
