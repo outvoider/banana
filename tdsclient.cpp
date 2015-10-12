@@ -8,7 +8,7 @@
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {
     spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
-    //dbexit();
+    dbexit();
     return(INT_CANCEL);
   }
   else
@@ -20,7 +20,7 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
     }
     
     dbclose(dbproc);
-    //dbexit();
+    dbexit();
 
     return(INT_CANCEL);
   }
@@ -311,7 +311,7 @@ int banana::TDSClient::execute() {
     fetchData();
   }
   
-  //this->close();
+  this->close();
   //dbclose(dbproc);
   //dbexit();
 

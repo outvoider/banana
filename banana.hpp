@@ -136,15 +136,16 @@ namespace banana {
     };
     string name;
     Json::Value topics;
-    shared_ptr<TDSClient> client;
+    //shared_ptr<TDSClient> client;
     channel(const string& n, const Json::Value& j) : name(n), topics(j) {
     
       //create a new TDSClient per channel
+      /*
       auto conn = globalConfig["connection"][name][::env];
       client = make_shared<TDSClient>();
       client->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
       client->useDatabase(conn["database"].asString());
-      
+      */      
     }
     ~channel(){}
   private:
@@ -343,7 +344,7 @@ namespace {
     return vs;
   };
 
-  auto executeScript2 = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
 
     auto conn = globalConfig["connection"][channelName][::env];
     int rc;
@@ -362,17 +363,149 @@ namespace {
     return db;
   };
 
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
+  auto processSqlResultsProxy = [](const string channelName, const Json::Value& topic, shared_ptr<Json::Value> root)->shared_ptr<vector<shared_ptr<string>>> {
 
-    //auto conn = globalConfig["connection"][channelName][::env];
-    //int rc;
-    //auto db = shared_ptr<banana::TDSClient>(new banana::TDSClient());
-    //rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
-    //if (rc)
-    //  return db;
-    //rc = db->useDatabase(conn["database"].asString());
-    //if (rc)
-    //  return db;
+    auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+
+    if (root == nullptr || root->isNull()){
+      return vs;
+    }
+
+    //do stuff
+    string currentLastStartTime;
+    
+    //int fieldcount = db->rows->fieldNames->size();
+
+    //for (auto& row : *(db->rows->fieldValues)){
+    Json::Value::iterator itr = root->begin();
+    while (itr != root->end()) {
+      Json::Value j = (*itr);
+
+      //auto names = j.getMemberNames();
+
+      Json::Value meta;
+      Json::Value body(j);
+      stringstream ss;
+
+      boost::uuids::uuid uuid = boost::uuids::random_generator()();
+
+      meta["index"]["_index"] = "cdc";
+      meta["index"]["_type"] = topic["name"].asString();
+      meta["index"]["_id"] = boost::uuids::to_string(uuid);
+
+      //for (int i = 0; i < fieldcount; i++){
+      //  auto n = db.get()->rows->fieldNames->at(i)->value;
+      //  body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
+      //}
+
+      //copy
+      body["processed"] = 0;
+      body["channel"] = channelName;
+
+      //
+      //  which module(s) should this record be replicated to?
+      //
+      if (topic["targetStores"].isArray()){
+        body["targetStores"] = topic["targetStores"];
+      }
+      body["modelName"] = topic["modelName"].asString();
+
+      //Update the start time
+      currentLastStartTime = body["start_time"].asString();
+
+      //.write will tack on a \n after completion
+      Json::FastWriter writer;
+      auto compactMeta = writer.write(meta);
+      auto compactBody = writer.write(body);
+
+      ss << compactMeta << compactBody;
+
+      spdlog::get("logger")->info() << ss.str();
+
+      auto sv = shared_ptr<string>(new string(ss.str()));
+      vs->push_back(sv);
+
+      itr++;
+
+    }
+
+    if (vs->size() > 0){
+      string nm = topic["name"].asString();
+
+      auto mdb = std::make_unique<::LMDBClient>();
+      mdb->setLmdbValue(nm, currentLastStartTime);
+    }
+
+    return vs;
+  };
+
+  auto executeScriptProxy = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<Json::Value> {
+
+    shared_ptr<Json::Value> vs = nullptr;
+
+    auto conn = globalConfig["sqlproxy"][channelName][::env];
+
+    if (conn.isNull()){
+      spdlog::get("logger")->error() << "config.json does not define sqlproxy." + channelName + "." + ::env;
+      return vs;
+    }
+
+    HttpClient client(conn["host"].asString() + ":" + conn["port"].asString());
+
+    shared_ptr <SimpleWeb::ClientBase<SimpleWeb::HTTP>::Response> r1;
+
+    try {
+
+      Json::Value query;
+      query["request"] = script;
+      
+      Json::FastWriter fastWriter;
+      std::string qt = fastWriter.write(query);
+      stringstream buf;
+      buf << qt;
+      r1 = client.request("POST", "/adhoc-query", buf);
+
+      cout << r1->status_code << endl;
+      cout << r1->content.rdbuf() << endl;
+
+      //get response
+      stringstream ss;
+      ss << r1->content.rdbuf();
+
+      if (ss.str().size() == 0){
+        return vs;
+      }
+      vs = make_shared<Json::Value>();
+
+      ss >> *vs;
+
+      /*
+      Json::Value root;
+      ss >> root;
+
+      //iterate
+      Json::Value::iterator itr = root.begin();
+      while (itr != root.end()) {
+        Json::Value j = (*itr);
+        
+        auto names = j.getMemberNames();
+
+        itr++;
+      }
+      **/
+
+    }
+    catch (const exception& e){
+      spdlog::get("logger")->error() << e.what();
+      spdlog::get("logger")->flush();
+      return vs;
+    }
+
+    return vs;
+  };
+
+  /*
+  auto executeScriptDontCloseDBProc = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
 
     auto itr = std::find_if(banana::channels.begin(), banana::channels.end(), [&channelName](banana::channel const& c){
       return c.name == channelName;
@@ -386,6 +519,7 @@ namespace {
 
     return db;
   };
+  */
 
   auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
 
@@ -493,7 +627,10 @@ namespace {
     //  execute script, will get instance of tds wrapper
     //
     //if using db-lib
-    auto db = executeScript(channelName, topic, script);
+    //auto db = executeScript(channelName, topic, script);
+
+    //id using sql-proxy
+    auto j = executeScriptProxy(channelName, topic, script);
 
     //if using ct-lib
     //auto vs = executeScriptCT(channelName, topic, script);
@@ -502,7 +639,10 @@ namespace {
     //  process the results with tds wrapper, get pointer to processed results
     //
     //if using db-lib
-    auto vs = processSqlResults(channelName, topic, db);
+    //auto vs = processSqlResults(channelName, topic, db);
+
+    //if using sql-proxy
+    auto vs = processSqlResultsProxy(channelName, topic, j);
 
     //destroy
     //db.reset();
