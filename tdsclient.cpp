@@ -8,7 +8,7 @@
 int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dberrstr, char* oserrstr) {
   if ((dbproc == NULL) || (DBDEAD(dbproc))) {
     spdlog::get("logger")->error() << "dbproc is NULL error: " << dberrstr;
-    dbexit();
+    //dbexit();
     return(INT_CANCEL);
   }
   else
@@ -20,7 +20,7 @@ int err_handler(DBPROCESS* dbproc, int severity, int dberr, int oserr, char* dbe
     }
     
     dbclose(dbproc);
-    dbexit();
+    //dbexit();
 
     return(INT_CANCEL);
   }
@@ -64,13 +64,18 @@ int banana::TDSClient::connect(string& _host, string& _user, string& _pass){
   return connect();
 };
 
+/*
+  do not call dbinit multiple times!
+  http://codeverge.com/sybase.ase.unix/memory-leak-in-libsybdb.so-2/966326
+*/
 int banana::TDSClient::init() {
   
   if (dbinit() == FAIL) {
     spdlog::get("logger")->error() << "dbinit() failed";
     return 1;
   }
-
+  
+  this->rows.release();
   this->rows = make_unique<banana::TDSRows>();
 
   return 0;
@@ -130,6 +135,8 @@ void banana::TDSClient::sql(string& _script){
 
 int banana::TDSClient::getMetadata() {
   
+  this->values.clear();
+
   ncols = dbnumcols(dbproc);
   this->values.reserve(ncols);
 
@@ -218,6 +225,9 @@ int banana::TDSClient::getMetadata() {
 
 int banana::TDSClient::fetchData() {
   
+  this->rows.release();
+  this->rows = make_unique<TDSRows>();
+
   while ((row_code = dbnextrow(dbproc)) != NO_MORE_ROWS){
 
     auto row = make_shared<banana::RowOfString>();
@@ -301,7 +311,7 @@ int banana::TDSClient::execute() {
     fetchData();
   }
   
-  this->close();
+  //this->close();
   //dbclose(dbproc);
   //dbexit();
 
@@ -314,5 +324,5 @@ void banana::TDSClient::close() {
     dbclose(dbproc);
     this->dbproc = NULL;
   }
-  dbexit();
+  //dbexit();
 }

@@ -2,6 +2,7 @@
 #define BANANA_H
 
 #include <iostream>
+#include <algorithm>
 #include <memory>
 #include <json/json.h>
 #include <sybfront.h>	/* sybfront.h always comes first */
@@ -39,21 +40,12 @@ static unsigned int sleep_ms = 5000;
 static string env = "dev";
 
 namespace banana {
-  class channel {
-  public:
-    string name;
-    Json::Value topics;
-    channel(const string& n, const Json::Value& j) : name(n), topics(j) {}
-    ~channel(){}
-  };
-
-  static vector<banana::channel> channels;
 
   template<typename T>
   class TDSCell {
   public:
     T value;
-    TDSCell<T>(T _val):value(_val){}
+    TDSCell<T>(T _val) : value(_val){}
     ~TDSCell<T>(){}
   };
 
@@ -61,7 +53,7 @@ namespace banana {
   typedef vector<shared_ptr<vector<shared_ptr<TDSCell<string>>>>> TableOfRowsOfString;
 
   class TDSRows {
-  public:  
+  public:
     shared_ptr<RowOfString> fieldNames;
     shared_ptr<TableOfRowsOfString> fieldValues;
     TDSRows() {
@@ -80,9 +72,9 @@ namespace banana {
     /*
     struct COL
     {
-      char *name;
-      char *buffer;
-      int type, size, status;
+    char *name;
+    char *buffer;
+    int type, size, status;
     } *columns, *pcol;
     */
 
@@ -111,7 +103,7 @@ namespace banana {
     //vector<char*> buffers;
     //vector<int> nullbind;
     Values values;
-    
+
     int init();
     int connect();
     int connect(string& _host, string& _user, string& _pass);
@@ -125,6 +117,7 @@ namespace banana {
     unique_ptr<TDSRows> rows;
     TDSClient(string& _host, string& _user, string& _pass) : host(_host), user(_user), pass(_pass) {}
     ~TDSClient();
+    DBPROCESS *dbproc = NULL;
   private:
     string host;
     string user;
@@ -132,12 +125,34 @@ namespace banana {
     string script;
     int ncols;
     int row_code;
-    LOGINREC *login = NULL;
-    DBPROCESS *dbproc = NULL;
+    LOGINREC *login = NULL;    
     RETCODE erc;
-
   };
-  
+
+  class channel {
+  public:
+    friend bool operator== (const channel &n1, const channel &n2){
+      return n1.name == n2.name;
+    };
+    string name;
+    Json::Value topics;
+    shared_ptr<TDSClient> client;
+    channel(const string& n, const Json::Value& j) : name(n), topics(j) {
+    
+      //create a new TDSClient per channel
+      auto conn = globalConfig["connection"][name][::env];
+      client = make_shared<TDSClient>();
+      client->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+      client->useDatabase(conn["database"].asString());
+      
+    }
+    ~channel(){}
+  private:
+    
+  };
+
+  static vector<banana::channel> channels;
+
   struct man {
     std::string env = "dev";
     Json::Value globalConfig;
@@ -208,7 +223,7 @@ namespace {
     spdlog::get("logger")->info(ss.str());
   };
 
-  auto processSqlResults = [](const string channelName, const Json::Value& topic, Query* q)->shared_ptr<vector<shared_ptr<string>>> {
+  auto processSqlResultsCT = [](const string channelName, const Json::Value& topic, Query* q)->shared_ptr<vector<shared_ptr<string>>> {
 
     auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
 
@@ -293,7 +308,7 @@ namespace {
     return vs;
   };
 
-  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<vector<shared_ptr<string>>> {
+  auto executeScriptCT = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<vector<shared_ptr<string>>> {
 
     shared_ptr<vector<shared_ptr<string>>> vs = nullptr;
 
@@ -312,7 +327,7 @@ namespace {
         /* Execute SQL query. */
         q->execute();
         
-        vs = processSqlResults(channelName, topic, q);
+        vs = processSqlResultsCT(channelName, topic, q);
 
       }
       catch (TDSPP::Exception &e) {
@@ -328,7 +343,7 @@ namespace {
     return vs;
   };
 
-  auto executeScript2 = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr < banana::TDSClient > {
+  auto executeScript2 = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
 
     auto conn = globalConfig["connection"][channelName][::env];
     int rc;
@@ -347,7 +362,32 @@ namespace {
     return db;
   };
 
-  auto processSqlResults2 = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
+  auto executeScript = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
+
+    //auto conn = globalConfig["connection"][channelName][::env];
+    //int rc;
+    //auto db = shared_ptr<banana::TDSClient>(new banana::TDSClient());
+    //rc = db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+    //if (rc)
+    //  return db;
+    //rc = db->useDatabase(conn["database"].asString());
+    //if (rc)
+    //  return db;
+
+    auto itr = std::find_if(banana::channels.begin(), banana::channels.end(), [&channelName](banana::channel const& c){
+      return c.name == channelName;
+    });
+    
+    auto db = itr->client;
+
+    db->sql(script);
+
+    db->execute();
+
+    return db;
+  };
+
+  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<shared_ptr<string>>> {
 
     auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
 
@@ -452,15 +492,17 @@ namespace {
     //
     //  execute script, will get instance of tds wrapper
     //
-    //
-    //auto db = executeScript(channelName, topic, script);
+    //if using db-lib
+    auto db = executeScript(channelName, topic, script);
 
-    auto vs = executeScript(channelName, topic, script);
+    //if using ct-lib
+    //auto vs = executeScriptCT(channelName, topic, script);
 
     //
     //  process the results with tds wrapper, get pointer to processed results
     //
-    //auto vs = processSqlResults(channelName, topic, db);
+    //if using db-lib
+    auto vs = processSqlResults(channelName, topic, db);
 
     //destroy
     //db.reset();
@@ -527,7 +569,9 @@ namespace {
 
     for (int index = 0; index < channel.size(); ++index){
       auto vs = processTopic(pr.name, channel[index]);
-      combined->insert(combined->end(), vs->begin(), vs->end());
+      if (vs != nullptr){
+        combined->insert(combined->end(), vs->begin(), vs->end());
+      }
       //vs.reset();
     }
 

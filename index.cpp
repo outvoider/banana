@@ -108,6 +108,12 @@ int main(int argc, char *argv[]) {
 
   initChannels();
 
+  //call dbinit() once only!
+  //if (dbinit() == FAIL) {
+  //  spdlog::get("logger")->error() << "dbinit() failed";
+  //  return 1;
+  //}
+
   //banana::man m(globalConfig, banana::channels, ::env);
 
   //spin foreveer
