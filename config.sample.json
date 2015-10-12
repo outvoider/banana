@@ -12,6 +12,22 @@
     }
   },
   "sleep_ms": 5000,
+  "sqlproxy": {
+    "rnumber": {
+      "dev": {
+        "host": "localhost",
+        "port": "5550"
+      },
+      "staging": {
+        "host": "localhost",
+        "port": "5550"
+      },
+      "prod": {
+        "host": "localhost",
+        "port": "5550"
+      }
+    }
+  },
   "connection": {
     "rn": {
       "dev": {
