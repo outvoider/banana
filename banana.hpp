@@ -69,16 +69,16 @@ namespace banana {
 
   class TDSClient{
   public:
-    /*
+    
     struct COL
     {
     char *name;
     char *buffer;
     int type, size, status;
     } *columns, *pcol;
-    */
-
-    struct COL {						/* (1) */
+    
+    /*
+    struct COL {						
       char *name;
       int type, status;
       size_t _size;
@@ -103,6 +103,7 @@ namespace banana {
     //vector<char*> buffers;
     //vector<int> nullbind;
     Values values;
+    */
 
     int init();
     int connect();
@@ -136,17 +137,7 @@ namespace banana {
     };
     string name;
     Json::Value topics;
-    //shared_ptr<TDSClient> client;
-    channel(const string& n, const Json::Value& j) : name(n), topics(j) {
-    
-      //create a new TDSClient per channel
-      /*
-      auto conn = globalConfig["connection"][name][::env];
-      client = make_shared<TDSClient>();
-      client->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
-      client->useDatabase(conn["database"].asString());
-      */      
-    }
+    channel(const string& n, const Json::Value& j) : name(n), topics(j) {}
     ~channel(){}
   private:
     
@@ -175,18 +166,6 @@ namespace banana {
   no namespace
 */
 namespace {
-
-  /*
-  auto tdsClientApiInvoke = [](std::string& channelName, Json::Value& topic, std::string& script)->int{
-
-    auto conn = globalConfig["connection"][channelName][::env];
-    int rc;
-    std::vector<std::string> queries = { script };
-    rc = ::tdsClientExecute(conn["host"].asString(), conn["database"].asString(), conn["user"].asString(), conn["pass"].asString(), queries);
-
-    return 0;
-  };
-  */
 
   auto loadConfigFile = []()->int{
 
@@ -627,10 +606,10 @@ namespace {
     //  execute script, will get instance of tds wrapper
     //
     //if using db-lib
-    //auto db = executeScript(channelName, topic, script);
+    auto db = executeScript(channelName, topic, script);
 
     //id using sql-proxy
-    auto j = executeScriptProxy(channelName, topic, script);
+    //auto j = executeScriptProxy(channelName, topic, script);
 
     //if using ct-lib
     //auto vs = executeScriptCT(channelName, topic, script);
@@ -639,10 +618,10 @@ namespace {
     //  process the results with tds wrapper, get pointer to processed results
     //
     //if using db-lib
-    //auto vs = processSqlResults(channelName, topic, db);
+    auto vs = processSqlResults(channelName, topic, db);
 
     //if using sql-proxy
-    auto vs = processSqlResultsProxy(channelName, topic, j);
+    //auto vs = processSqlResultsProxy(channelName, topic, j);
 
     //destroy
     //db.reset();
