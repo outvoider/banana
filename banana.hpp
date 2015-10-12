@@ -442,15 +442,18 @@ namespace {
       std::string qt = fastWriter.write(query);
       stringstream buf;
       buf << qt;
-      r1 = client.request("POST", "/adhoc-query", buf);
+
+      std::map<string, string> header;
+      header["Content-Type"] = "application/json";
+
+      r1 = client.request("POST", "/adhoc-query", buf, header);
 
       cout << r1->status_code << endl;
-      cout << r1->content.rdbuf() << endl;
-
+      
       //get response
       stringstream ss;
       ss << r1->content.rdbuf();
-
+      
       if (ss.str().size() == 0){
         return vs;
       }
@@ -606,10 +609,10 @@ namespace {
     //  execute script, will get instance of tds wrapper
     //
     //if using db-lib
-    auto db = executeScript(channelName, topic, script);
+    //auto db = executeScript(channelName, topic, script);
 
     //id using sql-proxy
-    //auto j = executeScriptProxy(channelName, topic, script);
+    auto j = executeScriptProxy(channelName, topic, script);
 
     //if using ct-lib
     //auto vs = executeScriptCT(channelName, topic, script);
@@ -618,10 +621,10 @@ namespace {
     //  process the results with tds wrapper, get pointer to processed results
     //
     //if using db-lib
-    auto vs = processSqlResults(channelName, topic, db);
+    //auto vs = processSqlResults(channelName, topic, db);
 
     //if using sql-proxy
-    //auto vs = processSqlResultsProxy(channelName, topic, j);
+    auto vs = processSqlResultsProxy(channelName, topic, j);
 
     //destroy
     //db.reset();
