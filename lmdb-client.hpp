@@ -139,7 +139,7 @@ namespace {
         return rc;
       }
       
-      spdlog::get("logger")->info() << "Successfully created lmdb.";      
+      //spdlog::get("logger")->info() << "Successfully created lmdb.";      
       return 0;
       
     };
