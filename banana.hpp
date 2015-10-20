@@ -658,7 +658,7 @@ namespace {
 
   auto bulkToElastic = [](vector<string>& v)->int{
 
-    if (v.size()){
+    if (v.size() == 0){
       return 1;
     }
 
@@ -698,7 +698,7 @@ namespace {
 
   auto processChannel = [](banana::channel& channel_ptr)->int{
 
-    //auto combined = make_shared<vector<shared_ptr<string>>>();
+    //auto combined = make_unique<vector<string>>();
     vector<string> combined;
 
     auto pr = channel_ptr;
@@ -707,7 +707,6 @@ namespace {
     for (int index = 0; index < channel.size(); ++index){
       auto vs = processTopic(pr.name, channel[index]);
       combined.insert(combined.end(), vs->begin(), vs->end());
-      vs->clear();
       //if (vs != nullptr){
         //combined->insert(combined->end(), vs->begin(), vs->end());
       //}
@@ -719,7 +718,7 @@ namespace {
       bulkToElastic(combined); 
     }
 
-    combined.clear();
+    //combined.clear();
     return 0;
   };
 
