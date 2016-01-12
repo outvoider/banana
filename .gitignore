@@ -9,3 +9,4 @@ config.json
 config-backup.json
 /build
 scripts.sql
+exports*

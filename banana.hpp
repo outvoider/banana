@@ -7,30 +7,21 @@
 #include <json/json.h>
 #include <sybfront.h>	/* sybfront.h always comes first */
 #include <sybdb.h>	/* sybdb.h is the only other file you need */
-
-//#include <iostream>
 #include <fstream>
-//#include <json/json.h>
-//#include "banana.h"
-
 #include <ctpublic.h>
-//#include <memory>
 #include <regex>
 #include "spdlog/spdlog.h"
-
 #include <boost/uuid/uuid.hpp>            // uuid class
 #include <boost/uuid/uuid_generators.hpp> // generators
 #include <boost/uuid/uuid_io.hpp>         // streaming operators etc.
-
 #include "semaphore.hpp"
 
 #include "client_http.hpp"
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
-//#include "lmdb.h"
 #include "lmdb-client.hpp"
 
-#include "tdspp.hh"
+#include "tdspp.hh"  /* ct-lib cpp wrapper, <<not using, only for testing>> */
 
 using namespace std;
 
@@ -77,34 +68,6 @@ namespace banana {
     int type, size, status;
     } *columns, *pcol;
     
-    /*
-    struct COL {						
-      char *name;
-      int type, status;
-      size_t _size;
-      std::string buffer;
-      COL(char* name, int type, size_t size) : name(name), type(type), _size(size) {
-        // note { string s; s.resize(5); strcpy(&s[0], "123"); s.resize(strlen(s.data())); cout << s; }
-        buffer.resize(_size + 1);
-        if (::strlen(name) > size)
-          _size = ::strlen(name);
-      }
-      bool operator== (const COL& r) const {
-        return name == r.name && type == r.type && _size == r._size && status == r.status && buffer == r.buffer;
-      }
-      const char* lexical() const {
-        return buffer.data();
-      }
-      int size() const { return _size; }
-      bool isNULL() const { return status == -1; }
-    };
-    typedef std::vector<COL> Values;
-
-    //vector<char*> buffers;
-    //vector<int> nullbind;
-    Values values;
-    */
-
     int init();
     int connect();
     int connect(string& _host, string& _user, string& _pass);
@@ -150,7 +113,6 @@ namespace banana {
     Json::Value globalConfig;
     vector<banana::channel> channels;
     man(Json::Value& _globalConfig, vector<banana::channel>& _channels, std::string _env) :globalConfig(_globalConfig), channels(_channels), env(_env){}
-    //void timer(string& message, std::chrono::time_point<std::chrono::system_clock>& t1);
     shared_ptr<vector<shared_ptr<string>>> processSqlResults(const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db);
     shared_ptr<banana::TDSClient> executeScript(const string channelName, const Json::Value& topic, string& script);
     shared_ptr<vector<shared_ptr<string>>> processTopic(string& channelName, Json::Value& topic);
@@ -209,30 +171,10 @@ namespace {
 
     //do stuff
     string currentLastStartTime;
-    //int fieldcount = db->rows->fieldNames->size();
-
     int fieldcount = q->fieldcount;
     
-    //vector<string> fieldNames;
-    //for (int i; i < fieldcount; i++){
-    //  fieldNames.push_back(q->fields(i)->colname);
-    //}
-
-    /* Print table headers, ie column names. */
-    /*
-    q->rows->printheader();
     while (!q->eof()) {
-      cout << "| ";
-      for (int i = 0; i < q->fieldcount; i++)
-        cout << q->fields(i)->tostr() << " | ";
-      cout << endl;
-      q->next();
-    }
-    */
-
-    while (!q->eof()) {
-    //for (auto& row : *(db->rows->fieldValues)){
-
+    
       Json::Value meta;
       Json::Value body;
       stringstream ss;
@@ -244,9 +186,7 @@ namespace {
       meta["index"]["_id"] = boost::uuids::to_string(uuid);
 
       for (int i = 0; i < fieldcount; i++){
-        //auto n = db.get()->rows->fieldNames->at(i)->value;
         auto n = q->fields(i)->colname;
-        //body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
         body[n] = q->fields(i)->tostr();
       }
       body["processed"] = 0;
@@ -344,10 +284,8 @@ namespace {
 
   auto processSqlResultsProxy = [](const string channelName, const Json::Value& topic, shared_ptr<Json::Value> root)->shared_ptr<vector<string>> {
 
-    //auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
     auto vs = make_shared<vector<string>>();
-    //vector<string> vs;
-
+    
     if (root == nullptr || root->isNull()){
       return vs;
     }
@@ -355,14 +293,9 @@ namespace {
     //do stuff
     string currentLastStartTime;
     
-    //int fieldcount = db->rows->fieldNames->size();
-
-    //for (auto& row : *(db->rows->fieldValues)){
     Json::Value::iterator itr = root->begin();
     while (itr != root->end()) {
       Json::Value j = (*itr);
-
-      //auto names = j.getMemberNames();
 
       Json::Value meta;
       Json::Value body(j);
@@ -373,11 +306,6 @@ namespace {
       meta["index"]["_index"] = "cdc";
       meta["index"]["_type"] = topic["name"].asString();
       meta["index"]["_id"] = boost::uuids::to_string(uuid);
-
-      //for (int i = 0; i < fieldcount; i++){
-      //  auto n = db.get()->rows->fieldNames->at(i)->value;
-      //  body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
-      //}
 
       //copy
       body["processed"] = 0;
@@ -403,20 +331,15 @@ namespace {
 
       spdlog::get("logger")->info() << ss.str();
 
-      //auto sv = shared_ptr<string>(new string(ss.str()));
-      //vs->push_back(sv);
       vs->push_back(ss.str());
 
       itr++;
 
     }
 
-    //if (vs->size() > 0){
     if (vs->size() > 0){
       string nm = topic["name"].asString();
 
-      //auto mdb = std::make_shared<::LMDBClient>();
-      //mdb->setLmdbValue(nm, currentLastStartTime);
       ::LMDBClient mdb;
       mdb.setLmdbValue(nm, currentLastStartTime);
     }
@@ -427,7 +350,6 @@ namespace {
   auto executeScriptProxy = [](const string& channelName, const Json::Value& topic, string& script)->shared_ptr<Json::Value> {
 
     shared_ptr<Json::Value> vs = nullptr;
-    //Json::Value vs;
     
     auto conn = globalConfig["sqlproxy"][channelName][::env];
 
@@ -455,8 +377,6 @@ namespace {
 
       r1 = client.request("POST", "/adhoc-query", buf, header);
 
-      //cout << r1->status_code << endl;
-      
       //get response
       stringstream ss;
       ss << r1->content.rdbuf();
@@ -471,21 +391,6 @@ namespace {
 
       r1->content.clear();
 
-      /*
-      Json::Value root;
-      ss >> root;
-
-      //iterate
-      Json::Value::iterator itr = root.begin();
-      while (itr != root.end()) {
-        Json::Value j = (*itr);
-        
-        auto names = j.getMemberNames();
-
-        itr++;
-      }
-      **/
-
     }
     catch (const exception& e){
       spdlog::get("logger")->error() << e.what();
@@ -496,29 +401,10 @@ namespace {
     return vs;
   };
 
-  /*
-  auto executeScriptDontCloseDBProc = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr <banana::TDSClient> {
-
-    auto itr = std::find_if(banana::channels.begin(), banana::channels.end(), [&channelName](banana::channel const& c){
-      return c.name == channelName;
-    });
-    
-    auto db = itr->client;
-
-    db->sql(script);
-
-    db->execute();
-
-    return db;
-  };
-  */
-
   auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<string>> {
 
-    //auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
     auto vs = make_shared<vector<string>>();
-    //vector<string> vs;
-
+    
     //do stuff
     string currentLastStartTime;
     int fieldcount = db->rows->fieldNames->size();
@@ -562,16 +448,8 @@ namespace {
 
       spdlog::get("logger")->info() << ss.str();
 
-      //auto sv = shared_ptr<string>(new string(ss.str()));
-      //auto sv = make_shared<string>(ss.str());
       vs->push_back(ss.str());
     }
-
-    //
-    //stringstream ss1;
-    //ss1 << "executeScript() Topic => " << topic["name"] << " total => " << vs.size();
-    //spdlog::get("logger")->info() << ss1.str();
-    //
 
     //Store this in lmdb
     //
@@ -603,27 +481,12 @@ namespace {
     //Fetch from lmdb store
     string nm = topic["name"].asString();
 
-    //auto mdb = std::make_shared<::LMDBClient>();
-    //string storedLastStartTime = mdb->getLmdbValue(nm);
     ::LMDBClient mdb;
     string storedLastStartTime = mdb.getLmdbValue(nm);
 
     std::regex e("\\$\\(LAST_EXEC_TIME\\)");
     script = scriptss.str();
     script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
-
-    //auto rc = tdsClientApiInvoke(channelName, topic, script);
-
-    //auto vs = make_shared<vector<shared_ptr<string>>>();
-
-    //do we really need to log the script itself?
-    //spdlog::get("logger")->info() << script;
-
-    //
-    //  execute script, will get instance of tds wrapper
-    //
-    //if using db-lib
-    //auto db = executeScript(channelName, topic, script);
 
     //if using sql-proxy
     auto j = executeScriptProxy(channelName, topic, script);
@@ -640,19 +503,17 @@ namespace {
     //if using sql-proxy
     auto vs = processSqlResultsProxy(channelName, topic, j);
     
-    //destroy
+    //if using db-lib destroy
     //db.reset();
 
     //
     //  log work
     //
-    //if (vs != nullptr){
-      stringstream ss;
-      ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
-      string msg = ss.str();
-      timer(msg, t1);
-    //}    
-
+    stringstream ss;
+    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
+    string msg = ss.str();
+    timer(msg, t1);
+    
     return vs;
   };
 
@@ -675,8 +536,6 @@ namespace {
     auto t1 = std::chrono::high_resolution_clock::now();
 
     HttpClient bulkClient(esHost + ":" + esPort);
-    //std::map<string, string> header;
-    //header["Content-Type"] = "application/json";
     auto r = bulkClient.request("POST", "/_bulk", ss);
     stringstream o;
     o << r->content.rdbuf();
@@ -686,8 +545,7 @@ namespace {
     if (!jv["error"].isNull()){
       spdlog::get("logger")->info() << o.str();
     }
-    //spdlog::get("logger")->info() << "bulkToElastic() took " << jv["took"].asString() << "ms errors => " << jv["errors"].asString();
-
+    
     ss.str("");
     ss << "Bulk to ES completed.  Total => " << v.size() << " Elapsed =>";
     string msg = ss.str();
@@ -698,7 +556,6 @@ namespace {
 
   auto processChannel = [](banana::channel& channel_ptr)->int{
 
-    //auto combined = make_unique<vector<string>>();
     vector<string> combined;
 
     auto pr = channel_ptr;
@@ -706,11 +563,7 @@ namespace {
 
     for (int index = 0; index < channel.size(); ++index){
       auto vs = processTopic(pr.name, channel[index]);
-      combined.insert(combined.end(), vs->begin(), vs->end());
-      //if (vs != nullptr){
-        //combined->insert(combined->end(), vs->begin(), vs->end());
-      //}
-      //vs.reset();      
+      combined.insert(combined.end(), vs->begin(), vs->end());       
     }
 
     //When all is done, bulkload to elasticsearch
@@ -718,7 +571,6 @@ namespace {
       bulkToElastic(combined); 
     }
 
-    //combined.clear();
     return 0;
   };
 

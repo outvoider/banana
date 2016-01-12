@@ -152,7 +152,6 @@ copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Release\ct.dll" "$(Target
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="index.cpp" />
-    <ClCompile Include="exports.cpp" />
     <ClCompile Include="tdsclient.cpp" />
     <ClCompile Include="test.cpp" />
   </ItemGroup>

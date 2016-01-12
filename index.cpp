@@ -31,7 +31,6 @@ auto setupLogging = []()->void {
   spdlog::set_async_mode(q_size);
 
   std::vector<spdlog::sink_ptr> sinks;
-  //sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
   sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_mt>("log/banana", "txt", 0, 0));
   
   auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
@@ -109,20 +108,10 @@ int main(int argc, char *argv[]) {
 
   initChannels();
 
-  //call dbinit() once only!
-  //if (dbinit() == FAIL) {
-  //  spdlog::get("logger")->error() << "dbinit() failed";
-  //  return 1;
-  //}
-
-  //banana::man m(globalConfig, banana::channels, ::env);
-
   //spin foreveer
   while (1){
     
     ::start();
-
-    //m.start();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     spdlog::get("logger")->flush();

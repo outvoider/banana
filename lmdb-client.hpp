@@ -128,10 +128,9 @@ namespace {
       rc = mdb_env_set_mapsize(lmdb_env, 10485760 * 10);
       rc = mdb_env_set_maxdbs(lmdb_env, 4);
       rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0664);
-      //rc = mdb_env_open(lmdb_env, dbPath.c_str(), MDB_CREATE, 0777);
+      
       if (rc != 0){
         char* c = mdb_strerror(rc);
-        //std::cout << c << endl;
         spdlog::get("logger")->error() << "Failed to create lmdb.  Returned => " << rc;
         spdlog::get("logger")->flush();
         mdb_env_close(lmdb_env);
