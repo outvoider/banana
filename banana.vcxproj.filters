@@ -19,6 +19,7 @@
     <None Include="config.sample.json" />
     <None Include="config-backup.json" />
     <None Include="config.json" />
+    <None Include="config-test.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="index.cpp">

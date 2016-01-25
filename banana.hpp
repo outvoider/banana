@@ -138,8 +138,7 @@ namespace {
       istream& s = ifs;
       bool parsingSuccessful = reader.parse(s, globalConfig);
       if (!parsingSuccessful){
-        spdlog::get("logger")->error() << "Failed to parse configuration\n"
-          << reader.getFormattedErrorMessages();
+        spdlog::get("logger")->error() << "Failed to parse configuration\n";
         return 1;
       }
     }

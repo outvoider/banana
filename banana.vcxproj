@@ -146,6 +146,7 @@ copy /Y "C:\cygwin64\home\htao\freetds\build\src\ctlib\Release\ct.dll" "$(Target
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="config-backup.json" />
+    <None Include="config-test.json" />
     <None Include="config.json" />
     <None Include="config.sample.json" />
     <None Include="scripts.sql" />
