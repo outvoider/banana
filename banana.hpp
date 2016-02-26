@@ -507,11 +507,12 @@ namespace {
 
     //
     //  log work
-    //
-    stringstream ss;
-    ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
-    string msg = ss.str();
-    timer(msg, t1);
+    if (vs->size() > 0) {
+      stringstream ss;
+      ss << "Topic => " << topic["name"].asString() << " completed. " << " Total => " << vs->size() << " Elapsed = > ";
+      string msg = ss.str();
+      timer(msg, t1);
+    }
     
     return vs;
   };
