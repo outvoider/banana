@@ -8,6 +8,7 @@
 config.json
 config-backup.json
 config-test.json
+config-changetracking.json
 /build
 scripts.sql
 exports*
