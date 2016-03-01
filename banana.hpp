@@ -328,7 +328,9 @@ namespace {
 
       ss << compactMeta << compactBody;
 
-      spdlog::get("logger")->info() << ss.str();
+      if (topic["log"].isNull() || (topic["log"].isBool() && topic["log"].asBool())){
+        spdlog::get("logger")->info() << ss.str();
+      }        
 
       vs->push_back(ss.str());
 
