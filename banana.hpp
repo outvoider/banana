@@ -198,6 +198,7 @@ namespace {
         body["targetStores"] = topic["targetStores"];
       }
       body["modelName"] = topic["modelName"].asString();
+      body["action"] = topic["name"].asString();
 
       //Update the start time
       currentLastStartTime = body["start_time"].asString();
@@ -317,6 +318,7 @@ namespace {
         body["targetStores"] = topic["targetStores"];
       }
       body["modelName"] = topic["modelName"].asString();
+      body["action"] = topic["name"].asString();
 
       //Update the start time
       currentLastStartTime = body["start_time"].asString();
