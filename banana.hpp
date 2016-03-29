@@ -176,17 +176,19 @@ namespace {
     //copy
     body["processed"] = 0;
     body["channel"] = channelName;
+    body["modelName"] = topic["modelName"].asString();
     body["model"] = topic["model"].asString();
-
-    //
+    body["action"] = topic["name"].asString();
+    //is this an activity?
+    if (!body["forType"].isNull()) {
+      body["modelName"] = body["forType"].asString();
+      body["model"] = regex_replace(body["forType"].asString(), regex(::tokenizerRegex), "");
+    }
     //  which module(s) should this record be replicated to?
-    //
     if (topic["targetStores"].isArray()){
       body["targetStores"] = topic["targetStores"];
     }
-    body["modelName"] = topic["modelName"].asString();
-    body["action"] = topic["name"].asString();
-
+    
     //Update the start time
     currentLastStartTime = body["start_time"].asString();
 
