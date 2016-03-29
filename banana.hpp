@@ -29,7 +29,7 @@ static Json::Value globalConfig;
 static string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
 static unsigned int sleep_ms = 5000;
 static string env = "dev";
-static const string tokenizerRegex = "[:punct:]|[:space:]";
+static const string tokenizerRegex = "[[:punct:]|[:space:]]";
 
 namespace banana {
 
