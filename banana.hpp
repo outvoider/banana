@@ -29,6 +29,7 @@ static Json::Value globalConfig;
 static string defaultLastExecTime = "CONVERT(datetime, '1970-01-01')";
 static unsigned int sleep_ms = 5000;
 static string env = "dev";
+static const string tokenizerRegex = "[:punct:]|[:space:]";
 
 namespace banana {
 
@@ -164,18 +165,141 @@ namespace {
     spdlog::get("logger")->info(ss.str());
   };
 
-  auto processSqlResultsCT = [](const string channelName, const Json::Value& topic, Query* q)->shared_ptr<vector<shared_ptr<string>>> {
+  auto prepareDocForElasticsearchBulk = [](const string channelName, const Json::Value& topic, Json::Value& meta, Json::Value& body, string& currentLastStartTime)->string {
+    stringstream ss;
+    boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-    auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+    meta["index"]["_index"] = topic["index"].asString();
+    meta["index"]["_type"] = topic["name"].asString();
+    meta["index"]["_id"] = boost::uuids::to_string(uuid);
+
+    //copy
+    body["processed"] = 0;
+    body["channel"] = channelName;
+    body["model"] = topic["model"].asString();
+
+    //
+    //  which module(s) should this record be replicated to?
+    //
+    if (topic["targetStores"].isArray()){
+      body["targetStores"] = topic["targetStores"];
+    }
+    body["modelName"] = topic["modelName"].asString();
+    body["action"] = topic["name"].asString();
+
+    //Update the start time
+    currentLastStartTime = body["start_time"].asString();
+
+    //.write will tack on a \n after completion
+    Json::FastWriter writer;
+    auto compactMeta = writer.write(meta);
+    auto compactBody = writer.write(body);
+    ss << compactMeta << compactBody;
+
+    //log it
+    if (topic["log"].isNull() || (topic["log"].isBool() && topic["log"].asBool())){
+      spdlog::get("logger")->info() << ss.str();
+    }
+    return ss.str();
+  };
+
+  auto processSqlResultsProxy = [](const string channelName, const Json::Value& topic, shared_ptr<Json::Value> root)->shared_ptr<vector<string>> {
+
+    auto vs = make_shared<vector<string>>();
+
+    if (root == nullptr || root->isNull()){
+      return vs;
+    }
 
     //do stuff
     string currentLastStartTime;
-    int fieldcount = q->fieldcount;
-    
-    while (!q->eof()) {
-    
+
+    Json::Value::iterator itr = root->begin();
+    while (itr != root->end()) {
+      Json::Value j = (*itr);
+
+      Json::Value meta;
+      Json::Value body(j);
+
+      auto doc = prepareDocForElasticsearchBulk(channelName, topic, meta, body, currentLastStartTime);
+
+      /*
+      stringstream ss;
+
+      boost::uuids::uuid uuid = boost::uuids::random_generator()();
+
+      meta["index"]["_index"] = topic["index"].asString();
+      meta["index"]["_type"] = topic["name"].asString();
+      meta["index"]["_id"] = boost::uuids::to_string(uuid);
+
+      //copy
+      body["processed"] = 0;
+      body["channel"] = channelName;
+      body["model"] = topic["model"].asString();
+
+      //
+      //  which module(s) should this record be replicated to?
+      //
+      if (topic["targetStores"].isArray()){
+      body["targetStores"] = topic["targetStores"];
+      }
+      body["modelName"] = topic["modelName"].asString();
+      body["action"] = topic["name"].asString();
+
+      //Update the start time
+      currentLastStartTime = body["start_time"].asString();
+
+      //.write will tack on a \n after completion
+      Json::FastWriter writer;
+      auto compactMeta = writer.write(meta);
+      auto compactBody = writer.write(body);
+
+      ss << compactMeta << compactBody;
+
+      if (topic["log"].isNull() || (topic["log"].isBool() && topic["log"].asBool())){
+      spdlog::get("logger")->info() << ss.str();
+      }
+
+      vs->push_back(ss.str());
+      */
+
+      vs->push_back(doc);
+      itr++;
+
+    }
+
+    if (vs->size() > 0){
+      string nm = topic["name"].asString();
+
+      ::LMDBClient mdb;
+      mdb.setLmdbValue(nm, currentLastStartTime);
+    }
+
+    return vs;
+  };
+
+  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<string>> {
+
+    auto vs = make_shared<vector<string>>();
+
+    //do stuff
+    string currentLastStartTime;
+    int fieldcount = db->rows->fieldNames->size();
+
+    for (auto& row : *(db->rows->fieldValues)){
+
       Json::Value meta;
       Json::Value body;
+
+      //process the row
+      for (int i = 0; i < fieldcount; i++){
+        auto n = db.get()->rows->fieldNames->at(i)->value;
+        body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
+      }
+
+      auto doc = prepareDocForElasticsearchBulk(channelName, topic, meta, body, currentLastStartTime);
+
+      /*
       stringstream ss;
 
       boost::uuids::uuid uuid = boost::uuids::random_generator()();
@@ -185,8 +309,8 @@ namespace {
       meta["index"]["_id"] = boost::uuids::to_string(uuid);
 
       for (int i = 0; i < fieldcount; i++){
-        auto n = q->fields(i)->colname;
-        body[n] = q->fields(i)->tostr();
+      auto n = db.get()->rows->fieldNames->at(i)->value;
+      body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
       }
       body["processed"] = 0;
       body["channel"] = channelName;
@@ -195,7 +319,83 @@ namespace {
       //  which module(s) should this record be replicated to?
       //
       if (topic["targetStores"].isArray()){
-        body["targetStores"] = topic["targetStores"];
+      body["targetStores"] = topic["targetStores"];
+      }
+      body["modelName"] = topic["modelName"].asString();
+      body["action"] = topic["name"].asString();
+
+      //Update the start time
+      currentLastStartTime = body["start_time"].asString();
+
+      //.write will tack on a \n after completion
+      Json::FastWriter writer;
+      auto compactMeta = writer.write(meta);
+      auto compactBody = writer.write(body);
+
+      ss << compactMeta << compactBody;
+
+      spdlog::get("logger")->info() << ss.str();
+
+      vs->push_back(ss.str());
+      */
+      vs->push_back(doc);
+    }
+
+    //Store this in lmdb
+    //
+    //Only update if rows returned
+    //
+    if (vs->size() > 0){
+      string nm = topic["name"].asString();
+
+      auto mdb = std::make_shared<::LMDBClient>();
+      mdb->setLmdbValue(nm, currentLastStartTime);
+    }
+
+    return vs;
+  };
+
+  auto processSqlResultsCT = [](const string channelName, const Json::Value& topic, Query* q)->shared_ptr<vector<shared_ptr<string>>> {
+
+    auto vs = shared_ptr<vector<shared_ptr<string>>>(new vector<shared_ptr<string>>());
+
+    //do stuff
+    string currentLastStartTime;
+    int fieldcount = q->fieldcount;
+
+    while (!q->eof()) {
+
+      Json::Value meta;
+      Json::Value body;
+      //process the row
+      for (int i = 0; i < fieldcount; i++){
+        auto n = q->fields(i)->colname;
+        body[n] = q->fields(i)->tostr();
+      }
+
+      auto doc = prepareDocForElasticsearchBulk(channelName, topic, meta, body, currentLastStartTime);
+
+      /*
+      stringstream ss;
+
+      boost::uuids::uuid uuid = boost::uuids::random_generator()();
+
+      meta["index"]["_index"] = "cdc";
+      meta["index"]["_type"] = topic["name"].asString();
+      meta["index"]["_id"] = boost::uuids::to_string(uuid);
+
+      for (int i = 0; i < fieldcount; i++){
+      auto n = q->fields(i)->colname;
+      body[n] = q->fields(i)->tostr();
+      }
+      body["processed"] = 0;
+      body["channel"] = channelName;
+
+      //
+      //  which module(s) should this record be replicated to?
+      //
+      if (topic["targetStores"].isArray()){
+      body["targetStores"] = topic["targetStores"];
       }
       body["modelName"] = topic["modelName"].asString();
       body["action"] = topic["name"].asString();
@@ -214,10 +414,11 @@ namespace {
 
       auto sv = shared_ptr<string>(new string(ss.str()));
       vs->push_back(sv);
-
+      */
+      vs->push_back(shared_ptr<string>(new string(doc)));
       q->next();
     }
-    
+
     if (vs->size() > 0){
       string nm = topic["name"].asString();
 
@@ -228,38 +429,54 @@ namespace {
     return vs;
   };
 
-  auto executeScriptCT = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<vector<shared_ptr<string>>> {
+  auto executeScriptProxy = [](const string& channelName, const Json::Value& topic, string& script)->shared_ptr<Json::Value> {
 
-    shared_ptr<vector<shared_ptr<string>>> vs = nullptr;
+    shared_ptr<Json::Value> vs = nullptr;
 
-    auto conn = globalConfig["connection"][channelName][::env];
+    auto conn = globalConfig["sqlproxy"][channelName][::env];
 
-    TDSPP *db = new TDSPP();
+    if (conn.isNull()){
+      spdlog::get("logger")->error() << "config.json does not define sqlproxy." + channelName + "." + ::env;
+      return vs;
+    }
+
+    HttpClient client(conn["host"].asString() + ":" + conn["port"].asString());
+
+    shared_ptr<SimpleWeb::ClientBase<SimpleWeb::HTTP>::Response> r1;
+
     try {
-      /* Connect to database. */
-      db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
-      /* Execute command. */
-      db->execute("use " + conn["database"].asString());
-      /* Create query. */
-      Query *q = db->sql(script);
+      Json::Value query;
+      query["request"] = script;
 
-      try {
-        /* Execute SQL query. */
-        q->execute();
-        
-        vs = processSqlResultsCT(channelName, topic, q);
+      Json::FastWriter fastWriter;
+      std::string qt = fastWriter.write(query);
+      stringstream buf;
+      buf << qt;
 
+      std::map<string, string> header;
+      header["Content-Type"] = "application/json";
+
+      r1 = client.request("POST", "/adhoc-query", buf, header);
+
+      //get response
+      stringstream ss;
+      ss << r1->content.rdbuf();
+
+      if (ss.str().size() == 0){
+        return vs;
       }
-      catch (TDSPP::Exception &e) {
-        cerr << e.message << endl;
-      }
-      delete q;
-    }
-    catch (TDSPP::Exception &e) {
-      cerr << e.message << endl;
-    }
-    delete db;
 
+      vs = make_shared<Json::Value>();
+
+      ss >> *vs;
+
+      r1->content.clear();
+    }
+    catch (const exception& e){
+      spdlog::get("logger")->error() << e.what();
+      spdlog::get("logger")->flush();
+      return vs;
+    }
     return vs;
   };
 
@@ -282,189 +499,37 @@ namespace {
     return db;
   };
 
-  auto processSqlResultsProxy = [](const string channelName, const Json::Value& topic, shared_ptr<Json::Value> root)->shared_ptr<vector<string>> {
+  auto executeScriptCT = [](const string channelName, const Json::Value& topic, string& script)->shared_ptr<vector<shared_ptr<string>>> {
 
-    auto vs = make_shared<vector<string>>();
-    
-    if (root == nullptr || root->isNull()){
-      return vs;
-    }
+    shared_ptr<vector<shared_ptr<string>>> vs = nullptr;
 
-    //do stuff
-    string currentLastStartTime;
-    
-    Json::Value::iterator itr = root->begin();
-    while (itr != root->end()) {
-      Json::Value j = (*itr);
+    auto conn = globalConfig["connection"][channelName][::env];
 
-      Json::Value meta;
-      Json::Value body(j);
-      stringstream ss;
-
-      boost::uuids::uuid uuid = boost::uuids::random_generator()();
-
-      meta["index"]["_index"] = "cdc";
-      meta["index"]["_type"] = topic["name"].asString();
-      meta["index"]["_id"] = boost::uuids::to_string(uuid);
-
-      //copy
-      body["processed"] = 0;
-      body["channel"] = channelName;
-
-      //
-      //  which module(s) should this record be replicated to?
-      //
-      if (topic["targetStores"].isArray()){
-        body["targetStores"] = topic["targetStores"];
-      }
-      body["modelName"] = topic["modelName"].asString();
-      body["action"] = topic["name"].asString();
-
-      //Update the start time
-      currentLastStartTime = body["start_time"].asString();
-
-      //.write will tack on a \n after completion
-      Json::FastWriter writer;
-      auto compactMeta = writer.write(meta);
-      auto compactBody = writer.write(body);
-
-      ss << compactMeta << compactBody;
-
-      if (topic["log"].isNull() || (topic["log"].isBool() && topic["log"].asBool())){
-        spdlog::get("logger")->info() << ss.str();
-      }        
-
-      vs->push_back(ss.str());
-
-      itr++;
-
-    }
-
-    if (vs->size() > 0){
-      string nm = topic["name"].asString();
-
-      ::LMDBClient mdb;
-      mdb.setLmdbValue(nm, currentLastStartTime);
-    }
-
-    return vs;
-  };
-
-  auto executeScriptProxy = [](const string& channelName, const Json::Value& topic, string& script)->shared_ptr<Json::Value> {
-
-    shared_ptr<Json::Value> vs = nullptr;
-    
-    auto conn = globalConfig["sqlproxy"][channelName][::env];
-
-    if (conn.isNull()){
-      spdlog::get("logger")->error() << "config.json does not define sqlproxy." + channelName + "." + ::env;
-      return vs;
-    }
-
-    HttpClient client(conn["host"].asString() + ":" + conn["port"].asString());
-
-    shared_ptr<SimpleWeb::ClientBase<SimpleWeb::HTTP>::Response> r1;
-
+    TDSPP *db = new TDSPP();
     try {
+      /* Connect to database. */
+      db->connect(conn["host"].asString(), conn["user"].asString(), conn["pass"].asString());
+      /* Execute command. */
+      db->execute("use " + conn["database"].asString());
+      /* Create query. */
+      Query *q = db->sql(script);
 
-      Json::Value query;
-      query["request"] = script;
-      
-      Json::FastWriter fastWriter;
-      std::string qt = fastWriter.write(query);
-      stringstream buf;
-      buf << qt;
+      try {
+        /* Execute SQL query. */
+        q->execute();
 
-      std::map<string, string> header;
-      header["Content-Type"] = "application/json";
+        vs = processSqlResultsCT(channelName, topic, q);
 
-      r1 = client.request("POST", "/adhoc-query", buf, header);
-
-      //get response
-      stringstream ss;
-      ss << r1->content.rdbuf();
-      
-      if (ss.str().size() == 0){
-        return vs;
       }
-      
-      vs = make_shared<Json::Value>();
-
-      ss >> *vs;
-
-      r1->content.clear();
-
-    }
-    catch (const exception& e){
-      spdlog::get("logger")->error() << e.what();
-      spdlog::get("logger")->flush();
-      return vs;
-    }
-
-    return vs;
-  };
-
-  auto processSqlResults = [](const string channelName, const Json::Value& topic, shared_ptr<banana::TDSClient> db)->shared_ptr<vector<string>> {
-
-    auto vs = make_shared<vector<string>>();
-    
-    //do stuff
-    string currentLastStartTime;
-    int fieldcount = db->rows->fieldNames->size();
-
-    for (auto& row : *(db->rows->fieldValues)){
-
-      Json::Value meta;
-      Json::Value body;
-      stringstream ss;
-
-      boost::uuids::uuid uuid = boost::uuids::random_generator()();
-
-      meta["index"]["_index"] = "cdc";
-      meta["index"]["_type"] = topic["name"].asString();
-      meta["index"]["_id"] = boost::uuids::to_string(uuid);
-
-      for (int i = 0; i < fieldcount; i++){
-        auto n = db.get()->rows->fieldNames->at(i)->value;
-        body[db.get()->rows->fieldNames->at(i)->value] = row.get()->at(i)->value;
+      catch (TDSPP::Exception &e) {
+        cerr << e.message << endl;
       }
-      body["processed"] = 0;
-      body["channel"] = channelName;
-
-      //
-      //  which module(s) should this record be replicated to?
-      //
-      if (topic["targetStores"].isArray()){
-        body["targetStores"] = topic["targetStores"];
-      }
-      body["modelName"] = topic["modelName"].asString();
-      body["action"] = topic["name"].asString();
-
-      //Update the start time
-      currentLastStartTime = body["start_time"].asString();
-
-      //.write will tack on a \n after completion
-      Json::FastWriter writer;
-      auto compactMeta = writer.write(meta);
-      auto compactBody = writer.write(body);
-
-      ss << compactMeta << compactBody;
-
-      spdlog::get("logger")->info() << ss.str();
-
-      vs->push_back(ss.str());
+      delete q;
     }
-
-    //Store this in lmdb
-    //
-    //Only update if rows returned
-    //
-    if (vs->size() > 0){
-      string nm = topic["name"].asString();
-
-      auto mdb = std::make_shared<::LMDBClient>();
-      mdb->setLmdbValue(nm, currentLastStartTime);
+    catch (TDSPP::Exception &e) {
+      cerr << e.message << endl;
     }
+    delete db;
 
     return vs;
   };
@@ -492,9 +557,19 @@ namespace {
     script = scriptss.str();
     script = std::regex_replace(script, e, storedLastStartTime.size() == 0 ? defaultLastExecTime : "convert(datetime, '" + storedLastStartTime + "')");
 
+    //add additional meta to topic
+    // remove punctuation and spaces
+    if (!topic["modelName"].isNull()) {
+      topic["model"] = regex_replace(topic["modelName"].asString(), regex(::tokenizerRegex), "");
+    }
+    //default index to global index
+    if (topic["index"].isNull()) {
+      topic["index"] = globalConfig["es"][::env]["index"];
+    }
+
     //if using sql-proxy
     auto j = executeScriptProxy(channelName, topic, script);
-
+    
     //if using ct-lib
     //auto vs = executeScriptCT(channelName, topic, script);
 
