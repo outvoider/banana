@@ -1,3 +1,13 @@
+#pragma once
+
+/* @reference https://github.com/dropbox/json11/issues/2 */
+#ifdef _MSC_VER
+#if _MSC_VER <= 1800 // VS 2013
+#define noexcept throw()
+#define snprintf _snprintf
+#endif
+#endif
+
 #ifndef BANANA_H
 #define BANANA_H
 

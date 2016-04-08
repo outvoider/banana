@@ -47,6 +47,7 @@
 namespace LdapPluginForBanana
 {
 	typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
+  typedef json11::Json Json;
 
 	using namespace std;
 	using namespace std::chrono;
@@ -1046,7 +1047,7 @@ namespace LdapPluginForBanana
 		const chrono::seconds period(60);
 
 		const string ldapUrl = "";
-		const int ldapPort = ;
+		const int ldapPort = 0;
 		const string ldapLogin = "";
 		const string ldapPassword = "";
 		const string ldapNode = "";

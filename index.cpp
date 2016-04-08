@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 
 #include "banana.hpp"
+#include "ldap-plugin-for-banana.hpp"
 #include "test.cpp"
 
 #ifdef _DEBUG
