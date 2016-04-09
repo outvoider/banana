@@ -18,6 +18,8 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
+#include <unordered_set>
+#include <algorithm> // for std::set_intersection
 
 #include "LDAPConnection.h"
 #include "LDAPConstraints.h"
@@ -47,7 +49,15 @@
 namespace LdapPluginForBanana
 {
 	typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
+  // banana also is using jsoncpp and compiler is confused between json11::Json and jsoncpp Json namespace
   typedef json11::Json Json;
+  // required configuration keys passed in by banana
+  const static unordered_set<string> requiredConfigKeys = {
+    "ldapUrl", "ldapPort", "ldapLogin", "ldapPassword", "ldapNode", "ldapFilter", "ldapIdAttribute", "ldapCreateTimeAttribute", "ldapUpdateTimeAttribute",
+    "mongoUrl", "mongoDatabase", "mongoTable",
+    "elasticUrl", "elasticIndex", "elasticType",
+    "lmdbPath", "lmdbKeyForLdapLowerBound"
+  };
 
 	using namespace std;
 	using namespace std::chrono;
@@ -1036,7 +1046,7 @@ namespace LdapPluginForBanana
 		}
 	};
 
-	void ExecutePeriodicUpsert()
+  void ExecutePeriodicUpsert(const Json& config)
 	{
 		// mongo::client::GlobalInstance must be instantiated in a function
 		mongo::client::GlobalInstance mongoInstance;
@@ -1046,36 +1056,39 @@ namespace LdapPluginForBanana
 		unique_lock<mutex> lock(m);
 		const chrono::seconds period(60);
 
-		const string ldapUrl = "";
-		const int ldapPort = 0;
-		const string ldapLogin = "";
-		const string ldapPassword = "";
-		const string ldapNode = "";
-		const string ldapFilter = "";
-		const string ldapIdAttribute = "";
-		const string ldapCreateTimeAttribute = "";
-		const string ldapUpdateTimeAttribute = "";
+		const string ldapUrl = config["ldapUrl"].string_value();
+    const int ldapPort = config["ldapPort"].is_number() ? config["ldapPort"].int_value() : 443;
+    const string ldapLogin = config["ldapLogin"].string_value();
+    const string ldapPassword = config["ldapPassword"].string_value();
+    const string ldapNode = config["ldapNode"].string_value();
+    const string ldapFilter = config["ldapFilter"].string_value();
+    const string ldapIdAttribute = config["ldapIdAttribute"].string_value();
+    const string ldapCreateTimeAttribute = config["ldapCreateTimeAttribute"].string_value();
+    const string ldapUpdateTimeAttribute = config["ldapUpdateTimeAttribute"].string_value();
 		time_t ldapLowerBound = -1;
 		//time_t ldapLowerBound = LdapDateTime::ToTimeT("20160314100000.0Z");
 		//const time_t ldapLowerBound = LdapDateTime::ToTimeT("20030808200000.0Z"); // -1
 		//const time_t ldapUpperBound = LdapDateTime::ToTimeT("20030809000000.0Z"); // -1
 
-		const string mongoUrl = "";
-		const string mongoDatabase = "";
-		const string mongoTable = "";
+    const string mongoUrl = config["mongoUrl"].string_value();
+    const string mongoDatabase = config["mongoDatabase"].string_value();
+    const string mongoTable = config["mongoTable"].string_value();
 
-		const string elasticUrl = "";
-		const string elasticIndex = "";
-		const string elasticType = "";
+    const string elasticUrl = config["elasticUrl"].string_value();
+    const string elasticIndex = config["elasticIndex"].string_value();
+    const string elasticType = config["elasticType"].string_value();
 
-		const string lmdbPath = "";
-		const string lmdbKeyForLdapLowerBound = "";
+    const string lmdbPath = config["lmdbPath"].string_value();
+    const string lmdbKeyForLdapLowerBound = config["lmdbKeyForLdapLowerBound"].string_value();
 
 		const string createdFileName = "logs/ldap_last_created_log.txt";
 		const string updatedFileName = "logs/ldap_last_updated_log.txt";
 
 		//spdlog::set_async_mode(1048576);
-		spdlog::daily_logger_mt("logger", "logs/ldap_log", 0, 0, true);
+    // logger may have already been instantiated by banana
+    if (!spdlog::get("logger")) {
+      spdlog::daily_logger_mt("logger", "logs/ldap_log", 0, 0, true);
+    }		
 
 		//LmeClient::Upsert(ldapUrl, ldapPort, ldapLogin, ldapPassword, ldapNode, ldapFilter, ldapIdAttribute, ldapCreateTimeAttribute, ldapLowerBound, ldapUpperBound,
 		//	mongoUrl, mongoDatabase, mongoTable,
@@ -1103,8 +1116,24 @@ namespace LdapPluginForBanana
 			createdFileName, updatedFileName);
 	}
 
-	void Execute()
+  void Execute(const Json& config)
 	{
-		ExecutePeriodicUpsert();
+    if (config.is_null() || !config.is_object()) {
+      spdlog::get("logger")->critical() << "Config for ldap-plugin is undefined or not an object";
+    }
+    int counter = 0;
+    // do all the keys exist when compared to required keys?
+    // expected => 17
+    for (auto& g : requiredConfigKeys) {
+      if (!config[g].is_null()) {
+        counter++;
+      }
+    }
+    if (counter != requiredConfigKeys.size()) {
+      spdlog::get("logger")->critical() << "Config does not contain all keys required by ldap-plugin";
+      return;
+    }
+
+		ExecutePeriodicUpsert(config);
 	}
 }
