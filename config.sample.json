@@ -1,4 +1,16 @@
 {
+  "mongo": {
+    "dev": {
+      "host": "localhost",
+      "port": "27017",
+      "database": "studies"
+    },
+    "prod": {
+    "host": "localhost",
+      "port": "27017",
+      "database": "studies"
+    }
+  },
   "es": {
     "dev": {
       "host": "localhost",
@@ -9,6 +21,29 @@
       "host": "",
       "port": "",
       "index": ""
+    }
+  },
+  "ldap": {
+    "dev": {
+      "host": "localhost",
+      "port": "389",
+      "user": "foo",
+      "pass": "bar"
+    },
+    "prod": {
+      "host": "",
+      "port": ""
+    }
+  },
+  "plugins": {
+    "channels": {
+      "ldap": [
+        {
+          "name": "ldap:user:whenchanged",
+          "node": "",
+          "filter": ""  
+        }
+      ]
     }
   },
   "sleep_ms": 5000,
